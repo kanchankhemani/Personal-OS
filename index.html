@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
@@ -76,964 +75,960 @@ const {useState, useEffect, useCallback, useRef} = React;
 
 // ── utils ──────────────────────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2,9);
-const todayStr = () => new Date().toISOString().split(“T”)[0];
+const todayStr = () => new Date().toISOString().split("T")[0];
 const dayIdx = () => { const d=new Date().getDay(); return d===0?6:d-1; };
-const weekStart = () => { const d=new Date(),m=new Date(d); m.setDate(d.getDate()-dayIdx()); return m.toISOString().split(“T”)[0]; };
-const daysUntil = s => { if(!s) return 999; return Math.ceil((new Date(s+“T12:00:00”)-new Date())/86400000); };
-const fmtDate = s => { if(!s) return “”; return new Date(s+“T12:00:00”).toLocaleDateString(“en-US”,{month:“short”,day:“numeric”}); };
-const fmtMins = m => !m?””:m>=60?`${Math.floor(m/60)}h${m%60?` ${m%60}m`:""}`:m?`${m}m`:””;
-const DAYS = [“Mon”,“Tue”,“Wed”,“Thu”,“Fri”,“Sat”,“Sun”];
+const weekStart = () => { const d=new Date(),m=new Date(d); m.setDate(d.getDate()-dayIdx()); return m.toISOString().split("T")[0]; };
+const daysUntil = s => { if(!s) return 999; return Math.ceil((new Date(s+"T12:00:00")-new Date())/86400000); };
+const fmtDate = s => { if(!s) return ""; return new Date(s+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"}); };
+const fmtMins = m => !m?"":m>=60?`${Math.floor(m/60)}h${m%60?` ${m%60}m`:""}`:m?`${m}m`:"";
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const CATS = [
-{id:“academic”,label:“Academic”,emoji:“📚”},
-{id:“jobsearch”,label:“Job Search”,emoji:“💼”},
-{id:“projects”,label:“Projects”,emoji:“🚀”},
-{id:“family”,label:“Family”,emoji:“👨‍👩‍👧”},
-{id:“travel”,label:“Travel”,emoji:“✈️”},
-{id:“social”,label:“Social”,emoji:“🌐”},
-{id:“therapy”,label:“Therapy”,emoji:“🧠”},
-{id:“sidequests”,label:“Side Quests”,emoji:“🎭”},
-{id:“weightloss”,label:“Weight Loss”,emoji:“⚖️”},
-{id:“lifeadmin”,label:“Life Admin”,emoji:“🗂️”},
+  {id:"academic",label:"Academic",emoji:"📚"},
+  {id:"jobsearch",label:"Job Search",emoji:"💼"},
+  {id:"projects",label:"Projects",emoji:"🚀"},
+  {id:"family",label:"Family",emoji:"👨‍👩‍👧"},
+  {id:"travel",label:"Travel",emoji:"✈️"},
+  {id:"social",label:"Social",emoji:"🌐"},
+  {id:"therapy",label:"Therapy",emoji:"🧠"},
+  {id:"sidequests",label:"Side Quests",emoji:"🎭"},
+  {id:"weightloss",label:"Weight Loss",emoji:"⚖️"},
+  {id:"lifeadmin",label:"Life Admin",emoji:"🗂️"},
 ];
 
 // ── localStorage with auto-sync hook ───────────────────────────────────
 // syncRef holds the Apps Script URL so the sync function can read it
-const syncRef = { url: “”, pending: false, timer: null };
+const syncRef = { url: "", pending: false, timer: null };
 
 function useStore(key, def) {
-const stored = localStorage.getItem(key);
-const [v, setV] = useState(() => { try { return stored ? JSON.parse(stored) : def; } catch { return def; } });
-const set = useCallback(nv => {
-setV(nv);
-localStorage.setItem(key, JSON.stringify(nv));
-// debounce auto-sync: 3s after last change
-if (syncRef.url) {
-clearTimeout(syncRef.timer);
-syncRef.timer = setTimeout(() => triggerSync(), 3000);
-}
-}, [key]);
-return [v, set];
+  const stored = localStorage.getItem(key);
+  const [v, setV] = useState(() => { try { return stored ? JSON.parse(stored) : def; } catch { return def; } });
+  const set = useCallback(nv => {
+    setV(nv);
+    localStorage.setItem(key, JSON.stringify(nv));
+    // debounce auto-sync: 3s after last change
+    if (syncRef.url) {
+      clearTimeout(syncRef.timer);
+      syncRef.timer = setTimeout(() => triggerSync(), 3000);
+    }
+  }, [key]);
+  return [v, set];
 }
 
 // ── defaults ────────────────────────────────────────────────────────────
 const DEF_DAILY = [
-{id:“d1”,name:“Work out”,emoji:“🏋️”,mins:45},
-{id:“d2”,name:“Dance”,emoji:“💃”,mins:30},
-{id:“d3”,name:“Read”,emoji:“📖”,mins:30},
-{id:“d4”,name:“Meal prep + food log”,emoji:“🥗”,mins:40},
-{id:“d5”,name:“Bathe, cleanse & remove makeup”,emoji:“🧖”,mins:20},
-{id:“d6”,name:“Take Allegra”,emoji:“💊”,mins:5},
-{id:“d7”,name:“Cleaning”,emoji:“🧹”,mins:15},
-{id:“d8”,name:“Call mom + Dolly”,emoji:“📞”,mins:20},
+  {id:"d1",name:"Work out",emoji:"🏋️",mins:45},
+  {id:"d2",name:"Dance",emoji:"💃",mins:30},
+  {id:"d3",name:"Read",emoji:"📖",mins:30},
+  {id:"d4",name:"Meal prep + food log",emoji:"🥗",mins:40},
+  {id:"d5",name:"Bathe, cleanse & remove makeup",emoji:"🧖",mins:20},
+  {id:"d6",name:"Take Allegra",emoji:"💊",mins:5},
+  {id:"d7",name:"Cleaning",emoji:"🧹",mins:15},
+  {id:"d8",name:"Call mom + Dolly",emoji:"📞",mins:20},
 ];
 const DEF_WEEKLY = [
-{id:“w1”,name:“Decide weekly menu”,emoji:“🍽️”,days:[0],mins:20},
-{id:“w2”,name:“Skincare ritual”,emoji:“✨”,days:[0,3],mins:30},
-{id:“w3”,name:“Vitamin D + hair spa”,emoji:“☀️”,days:[5],mins:45},
-{id:“w4”,name:“Plan week academically”,emoji:“📚”,days:[6],mins:60},
-{id:“w5”,name:“Mental time audit”,emoji:“🧠”,days:[6],mins:30},
-{id:“w6”,name:“Finance / OKR review”,emoji:“📈”,days:[3],mins:60},
-{id:“w7”,name:“Try 1 new AI tool (30 min)”,emoji:“🤖”,days:[2],mins:30},
+  {id:"w1",name:"Decide weekly menu",emoji:"🍽️",days:[0],mins:20},
+  {id:"w2",name:"Skincare ritual",emoji:"✨",days:[0,3],mins:30},
+  {id:"w3",name:"Vitamin D + hair spa",emoji:"☀️",days:[5],mins:45},
+  {id:"w4",name:"Plan week academically",emoji:"📚",days:[6],mins:60},
+  {id:"w5",name:"Mental time audit",emoji:"🧠",days:[6],mins:30},
+  {id:"w6",name:"Finance / OKR review",emoji:"📈",days:[3],mins:60},
+  {id:"w7",name:"Try 1 new AI tool (30 min)",emoji:"🤖",days:[2],mins:30},
 ];
-const mkT = (title,cat,dueDate=””,mins=30,priority=“medium”) =>
-({id:uid(),title,cat,dueDate,mins,priority,done:false,notes:””,subtasks:[]});
+const mkT = (title,cat,dueDate="",mins=30,priority="medium") =>
+  ({id:uid(),title,cat,dueDate,mins,priority,done:false,notes:"",subtasks:[]});
 const DEF_TASKS = [
-mkT(“Case prep: current week”,“academic”,””,90,“high”),
-mkT(“Build MBA knowledge doc”,“academic”,“2026-06-01”,120,“medium”),
-mkT(“Daily job applications”,“jobsearch”,””,60,“high”),
-mkT(“NcodiN negotiation / BATNA prep”,“jobsearch”,””,90,“high”),
-mkT(“Semiconductor outreach”,“jobsearch”,””,45,“high”),
-mkT(“Prep Manish Muthal call”,“jobsearch”,””,30,“high”),
-mkT(“Prep Laura Shacht call”,“jobsearch”,””,30,“high”),
-mkT(“Follow-up emails — time-sensitive!”,“jobsearch”,””,20,“high”),
-mkT(“Book hotels/BnB — parents grad + World Cup”,“family”,“2026-03-15”,60,“high”),
-mkT(“Contest COD bank charges Dubai”,“lifeadmin”,””,30,“high”),
-mkT(“FedEx + UPS returns”,“lifeadmin”,””,20,“medium”),
-mkT(“Teleport .edu → personal email”,“lifeadmin”,“2026-05-01”,120,“medium”),
+  mkT("Case prep: current week","academic","",90,"high"),
+  mkT("Build MBA knowledge doc","academic","2026-06-01",120,"medium"),
+  mkT("Daily job applications","jobsearch","",60,"high"),
+  mkT("NcodiN negotiation / BATNA prep","jobsearch","",90,"high"),
+  mkT("Semiconductor outreach","jobsearch","",45,"high"),
+  mkT("Prep Manish Muthal call","jobsearch","",30,"high"),
+  mkT("Prep Laura Shacht call","jobsearch","",30,"high"),
+  mkT("Follow-up emails — time-sensitive!","jobsearch","",20,"high"),
+  mkT("Book hotels/BnB — parents grad + World Cup","family","2026-03-15",60,"high"),
+  mkT("Contest COD bank charges Dubai","lifeadmin","",30,"high"),
+  mkT("FedEx + UPS returns","lifeadmin","",20,"medium"),
+  mkT("Teleport .edu → personal email","lifeadmin","2026-05-01",120,"medium"),
 ];
 const DEF_PROJ = [
-{id:“p1”,name:“Chips Club”,emoji:“🔬”,color:”#a8d8ff”,tasks:[mkT(“Next event planning”,“projects”,””,60,“high”)],milestones:[{id:uid(),title:“Spring event”,dueDate:“2026-04-15”,done:false}]},
-{id:“p2”,name:“WIM Banquet”,emoji:“🎗️”,color:”#ffb8d4”,tasks:[mkT(“Confirm responsibilities”,“projects”,“2026-03-20”,45,“high”)],milestones:[{id:uid(),title:“Banquet day”,dueDate:“2026-03-20”,done:false}]},
-{id:“p3”,name:“Meta Optics DD”,emoji:“💡”,color:”#ffd93d”,tasks:[mkT(“Complete DD report”,“projects”,””,120,“high”)],milestones:[{id:uid(),title:“Report delivered”,dueDate:“2026-03-10”,done:false}]},
+  {id:"p1",name:"Chips Club",emoji:"🔬",color:"#a8d8ff",tasks:[mkT("Next event planning","projects","",60,"high")],milestones:[{id:uid(),title:"Spring event",dueDate:"2026-04-15",done:false}]},
+  {id:"p2",name:"WIM Banquet",emoji:"🎗️",color:"#ffb8d4",tasks:[mkT("Confirm responsibilities","projects","2026-03-20",45,"high")],milestones:[{id:uid(),title:"Banquet day",dueDate:"2026-03-20",done:false}]},
+  {id:"p3",name:"Meta Optics DD",emoji:"💡",color:"#ffd93d",tasks:[mkT("Complete DD report","projects","",120,"high")],milestones:[{id:uid(),title:"Report delivered",dueDate:"2026-03-10",done:false}]},
 ];
 const DEF_TRAVEL = [
-{id:“t1”,name:“Bariloche Spring Break”,emoji:“🏔️”,color:”#99ffcc”,tasks:[mkT(“Book flights”,“travel”,””,30,“high”),mkT(“Accommodation research”,“travel”,””,45,“medium”),mkT(“Itinerary”,“travel”,””,60,“medium”)],milestones:[{id:uid(),title:“All bookings confirmed”,dueDate:“2026-03-20”,done:false}]},
-{id:“t2”,name:“Parents Grad Visit”,emoji:“👨‍👩‍👧”,color:”#c5b3ff”,tasks:[mkT(“Research hotels near Stanford”,“family”,“2026-03-15”,45,“high”),mkT(“Grad ceremony logistics”,“family”,“2026-05-01”,60,“medium”)],milestones:[{id:uid(),title:“Hotels booked”,dueDate:“2026-03-15”,done:false}]},
+  {id:"t1",name:"Bariloche Spring Break",emoji:"🏔️",color:"#99ffcc",tasks:[mkT("Book flights","travel","",30,"high"),mkT("Accommodation research","travel","",45,"medium"),mkT("Itinerary","travel","",60,"medium")],milestones:[{id:uid(),title:"All bookings confirmed",dueDate:"2026-03-20",done:false}]},
+  {id:"t2",name:"Parents Grad Visit",emoji:"👨‍👩‍👧",color:"#c5b3ff",tasks:[mkT("Research hotels near Stanford","family","2026-03-15",45,"high"),mkT("Grad ceremony logistics","family","2026-05-01",60,"medium")],milestones:[{id:uid(),title:"Hotels booked",dueDate:"2026-03-15",done:false}]},
 ];
 const DEF_THEATRE = [
-{id:“th1”,prompt:“Express excitement about something you genuinely don’t care about”,done:false},
-{id:“th2”,prompt:“Have a strong opinion on something trivial”,done:false},
-{id:“th3”,prompt:“Tell someone what you want for dinner — no ‘I don’t mind’”,done:false},
-{id:“th4”,prompt:“React physically — laugh out loud, clap, groan”,done:false},
-{id:“th5”,prompt:“Disagree with someone out loud, not just in your head”,done:false},
-{id:“th6”,prompt:“Say ‘I love this’ or ‘I hate this’ about something today”,done:false},
-{id:“th7”,prompt:“Initiate a conversation you’ve been avoiding”,done:false},
-{id:“th8”,prompt:“Ask for exactly what you want in a social situation”,done:false},
+  {id:"th1",prompt:"Express excitement about something you genuinely don't care about",done:false},
+  {id:"th2",prompt:"Have a strong opinion on something trivial",done:false},
+  {id:"th3",prompt:"Tell someone what you want for dinner — no 'I don't mind'",done:false},
+  {id:"th4",prompt:"React physically — laugh out loud, clap, groan",done:false},
+  {id:"th5",prompt:"Disagree with someone out loud, not just in your head",done:false},
+  {id:"th6",prompt:"Say 'I love this' or 'I hate this' about something today",done:false},
+  {id:"th7",prompt:"Initiate a conversation you've been avoiding",done:false},
+  {id:"th8",prompt:"Ask for exactly what you want in a social situation",done:false},
 ];
 const DEF_SQ = [
-{id:“sq1”,name:“Singing”,emoji:“🎤”,log:[]},
-{id:“sq2”,name:“Open mic comedy”,emoji:“🎭”,log:[]},
-{id:“sq3”,name:“Acting workshop”,emoji:“🎬”,log:[]},
-{id:“sq4”,name:“Learn an instrument”,emoji:“🎸”,log:[]},
-{id:“sq5”,name:“Sports (aggression + discipline)”,emoji:“🥊”,log:[]},
-{id:“sq6”,name:“Bucket list item”,emoji:“✨”,log:[]},
+  {id:"sq1",name:"Singing",emoji:"🎤",log:[]},
+  {id:"sq2",name:"Open mic comedy",emoji:"🎭",log:[]},
+  {id:"sq3",name:"Acting workshop",emoji:"🎬",log:[]},
+  {id:"sq4",name:"Learn an instrument",emoji:"🎸",log:[]},
+  {id:"sq5",name:"Sports (aggression + discipline)",emoji:"🥊",log:[]},
+  {id:"sq6",name:"Bucket list item",emoji:"✨",log:[]},
 ];
 
 // ── sync engine ─────────────────────────────────────────────────────────
 function buildPayload() {
-const get = k => { try { return JSON.parse(localStorage.getItem(k)||“null”); } catch { return null; } };
-const today = todayStr(), wk = weekStart();
-return {
-syncedAt: new Date().toISOString(),
-dailyHabits: get(“kk-dh”) || DEF_DAILY,
-weeklyHabits: get(“kk-wh”) || DEF_WEEKLY,
-tasks: (get(“kk-tasks”) || DEF_TASKS).filter(t=>!t.done).map(t=>{
-const effectiveMins = t.subtasks?.length>0 ? t.subtasks.reduce((s,x)=>s+(x.mins||0),0) : t.mins;
-return {…t, effectiveMins};
-}),
-projectTasks: […(get(“kk-proj”)||DEF_PROJ), …(get(“kk-travel”)||DEF_TRAVEL)]
-.flatMap(p=>p.tasks.filter(t=>!t.done).map(t=>({…t,projectName:p.name}))),
-};
+  const get = k => { try { return JSON.parse(localStorage.getItem(k)||"null"); } catch { return null; } };
+  const today = todayStr(), wk = weekStart();
+  return {
+    syncedAt: new Date().toISOString(),
+    dailyHabits: get("kk-dh") || DEF_DAILY,
+    weeklyHabits: get("kk-wh") || DEF_WEEKLY,
+    tasks: (get("kk-tasks") || DEF_TASKS).filter(t=>!t.done).map(t=>{
+      const effectiveMins = t.subtasks?.length>0 ? t.subtasks.reduce((s,x)=>s+(x.mins||0),0) : t.mins;
+      return {...t, effectiveMins};
+    }),
+    projectTasks: [...(get("kk-proj")||DEF_PROJ), ...(get("kk-travel")||DEF_TRAVEL)]
+      .flatMap(p=>p.tasks.filter(t=>!t.done).map(t=>({...t,projectName:p.name}))),
+  };
 }
 
 async function triggerSync() {
-if (!syncRef.url || syncRef.pending) return;
-syncRef.pending = true;
-try {
-await fetch(syncRef.url, {
-method:“POST”,
-body: JSON.stringify(buildPayload()),
-headers:{“Content-Type”:“application/json”},
-mode:“no-cors”,
-});
-} catch(e) { console.log(“Sync error:”, e); }
-syncRef.pending = false;
+  if (!syncRef.url || syncRef.pending) return;
+  syncRef.pending = true;
+  try {
+    await fetch(syncRef.url, {
+      method:"POST",
+      body: JSON.stringify(buildPayload()),
+      headers:{"Content-Type":"application/json"},
+      mode:"no-cors",
+    });
+  } catch(e) { console.log("Sync error:", e); }
+  syncRef.pending = false;
 }
 
 // ── components ──────────────────────────────────────────────────────────
-function Ring({done,total,color=”#c5b3ff”,size=50}) {
-const r=16,c=2*Math.PI*r,p=total?done/total:0;
-return (
-<div className="ring" style={{width:size,height:size}}>
-<svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{transform:“rotate(-90deg)”}}>
-<circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1a1a2a" strokeWidth="3"/>
-<circle cx={size/2} cy={size/2} r={r} fill=“none” stroke={color} strokeWidth=“3”
-strokeDasharray={`${p*c} ${c}`} strokeLinecap=“round” style={{transition:“stroke-dasharray 0.4s”}}/>
-</svg>
-<span className="ring-v">{done}/{total}</span>
-</div>
-);
+function Ring({done,total,color="#c5b3ff",size=50}) {
+  const r=16,c=2*Math.PI*r,p=total?done/total:0;
+  return (
+    <div className="ring" style={{width:size,height:size}}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{transform:"rotate(-90deg)"}}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1a1a2a" strokeWidth="3"/>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="3"
+          strokeDasharray={`${p*c} ${c}`} strokeLinecap="round" style={{transition:"stroke-dasharray 0.4s"}}/>
+      </svg>
+      <span className="ring-v">{done}/{total}</span>
+    </div>
+  );
 }
 
 function DueTag({dueDate}) {
-if (!dueDate) return null;
-const d = daysUntil(dueDate);
-if (d < 0) return <span className="dh">OVERDUE</span>;
-if (d === 0) return <span className="dh">TODAY</span>;
-if (d <= 3) return <span className="dh">{fmtDate(dueDate)}</span>;
-if (d <= 7) return <span className="dw">{fmtDate(dueDate)}</span>;
-return <span className="dc">{fmtDate(dueDate)}</span>;
+  if (!dueDate) return null;
+  const d = daysUntil(dueDate);
+  if (d < 0) return <span className="dh">OVERDUE</span>;
+  if (d === 0) return <span className="dh">TODAY</span>;
+  if (d <= 3) return <span className="dh">{fmtDate(dueDate)}</span>;
+  if (d <= 7) return <span className="dw">{fmtDate(dueDate)}</span>;
+  return <span className="dc">{fmtDate(dueDate)}</span>;
 }
 
 function SubTasks({subtasks=[], onChange}) {
-const [open,setOpen] = useState(false);
-const [newTitle,setNewTitle] = useState(””);
-const [newMins,setNewMins] = useState(15);
-const total = subtasks.reduce((s,t)=>s+(t.mins||0),0);
-const done = subtasks.filter(t=>t.done).length;
-const add = () => {
-if (!newTitle.trim()) return;
-onChange([…subtasks,{id:uid(),title:newTitle.trim(),mins:+newMins,done:false}]);
-setNewTitle(””); setNewMins(15);
-};
-return (
-<div>
-<button className=“expand-row” onClick={()=>setOpen(!open)}>
-<span style={{fontSize:10,color:”#555”}}>{open?“▼”:“▶”}</span>
-<span style={{fontSize:11,color:”#555”}}>
-{subtasks.length>0 ? `${done}/${subtasks.length} subtasks${total?" · "+fmtMins(total):""}` : “add subtasks”}
-</span>
-</button>
-{open && (
-<div className="sub-area">
-{subtasks.map(t=>(
-<div key={t.id} style={{display:“flex”,alignItems:“center”,gap:8,padding:“5px 0”,borderBottom:“1px solid #141422”}}>
-<button className={`chk-sub ${t.done?"chk-sub-on":""}`}
-onClick={()=>onChange(subtasks.map(x=>x.id===t.id?{…x,done:!x.done}:x))}>
-{t.done?“✓”:””}
-</button>
-<span style={{flex:1,fontSize:12,color:t.done?”#333”:”#aaa”,textDecoration:t.done?“line-through”:“none”}}>{t.title}</span>
-{t.mins>0 && <span style={{fontSize:10,color:”#555”,fontFamily:“monospace”}}>{fmtMins(t.mins)}</span>}
-<button className=“del” style={{fontSize:14}} onClick={()=>onChange(subtasks.filter(x=>x.id!==t.id))}>×</button>
-</div>
-))}
-<div style={{display:“flex”,gap:6,marginTop:8}}>
-<input className=“inp-sm” value={newTitle} onChange={e=>setNewTitle(e.target.value)}
-placeholder=“Subtask…” style={{flex:1}} onKeyDown={e=>e.key===“Enter”&&add()}/>
-<input className=“inp-sm” type=“number” value={newMins} onChange={e=>setNewMins(e.target.value)} style={{width:55}}/>
-<button className="btn-sm" onClick={add}>+</button>
-</div>
-</div>
-)}
-</div>
-);
+  const [open,setOpen] = useState(false);
+  const [newTitle,setNewTitle] = useState("");
+  const [newMins,setNewMins] = useState(15);
+  const total = subtasks.reduce((s,t)=>s+(t.mins||0),0);
+  const done = subtasks.filter(t=>t.done).length;
+  const add = () => {
+    if (!newTitle.trim()) return;
+    onChange([...subtasks,{id:uid(),title:newTitle.trim(),mins:+newMins,done:false}]);
+    setNewTitle(""); setNewMins(15);
+  };
+  return (
+    <div>
+      <button className="expand-row" onClick={()=>setOpen(!open)}>
+        <span style={{fontSize:10,color:"#555"}}>{open?"▼":"▶"}</span>
+        <span style={{fontSize:11,color:"#555"}}>
+          {subtasks.length>0 ? `${done}/${subtasks.length} subtasks${total?" · "+fmtMins(total):""}` : "add subtasks"}
+        </span>
+      </button>
+      {open && (
+        <div className="sub-area">
+          {subtasks.map(t=>(
+            <div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #141422"}}>
+              <button className={`chk-sub ${t.done?"chk-sub-on":""}`}
+                onClick={()=>onChange(subtasks.map(x=>x.id===t.id?{...x,done:!x.done}:x))}>
+                {t.done?"✓":""}
+              </button>
+              <span style={{flex:1,fontSize:12,color:t.done?"#333":"#aaa",textDecoration:t.done?"line-through":"none"}}>{t.title}</span>
+              {t.mins>0 && <span style={{fontSize:10,color:"#555",fontFamily:"monospace"}}>{fmtMins(t.mins)}</span>}
+              <button className="del" style={{fontSize:14}} onClick={()=>onChange(subtasks.filter(x=>x.id!==t.id))}>×</button>
+            </div>
+          ))}
+          <div style={{display:"flex",gap:6,marginTop:8}}>
+            <input className="inp-sm" value={newTitle} onChange={e=>setNewTitle(e.target.value)}
+              placeholder="Subtask…" style={{flex:1}} onKeyDown={e=>e.key==="Enter"&&add()}/>
+            <input className="inp-sm" type="number" value={newMins} onChange={e=>setNewMins(e.target.value)} style={{width:55}}/>
+            <button className="btn-sm" onClick={add}>+</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function TaskRow({task, onToggle, onDelete, onUpdate, showCat=false}) {
-const [editing,setEditing] = useState(false);
-const effectiveMins = task.subtasks?.length>0 ? task.subtasks.reduce((s,t)=>s+(t.mins||0),0) : task.mins;
-return (
-<div style={{opacity:task.done?0.4:1}}>
-<div className="row">
-<button className={`chk ${task.done?"chk-on":""}`} onClick={()=>onToggle(task.id)}>{task.done?“✓”:””}</button>
-{editing
-? <input className=“inp-il” autoFocus value={task.title}
-onChange={e=>onUpdate(task.id,{title:e.target.value})}
-onBlur={()=>setEditing(false)} onKeyDown={e=>e.key===“Enter”&&setEditing(false)}/>
-: <span style={{flex:1,fontSize:13,color:task.done?”#333”:”#d0d0e8”,textDecoration:task.done?“line-through”:“none”,cursor:“text”}}
-onClick={()=>!task.done&&setEditing(true)}>{task.title}</span>
-}
-{showCat && <span style={{fontSize:9,color:”#555”,background:”#141422”,padding:“2px 5px”,borderRadius:20,flexShrink:0}}>{task.cat}</span>}
-{effectiveMins>0 && <span className="mb">{fmtMins(effectiveMins)}</span>}
-<DueTag dueDate={task.dueDate}/>
-{task.priority===“high” && <span style={{color:”#ff8080”,fontSize:12,flexShrink:0}}>!</span>}
-<button className=“del” onClick={()=>onDelete(task.id)}>×</button>
-</div>
-<SubTasks subtasks={task.subtasks||[]} onChange={subs=>onUpdate(task.id,{subtasks:subs})}/>
-</div>
-);
+  const [editing,setEditing] = useState(false);
+  const effectiveMins = task.subtasks?.length>0 ? task.subtasks.reduce((s,t)=>s+(t.mins||0),0) : task.mins;
+  return (
+    <div style={{opacity:task.done?0.4:1}}>
+      <div className="row">
+        <button className={`chk ${task.done?"chk-on":""}`} onClick={()=>onToggle(task.id)}>{task.done?"✓":""}</button>
+        {editing
+          ? <input className="inp-il" autoFocus value={task.title}
+              onChange={e=>onUpdate(task.id,{title:e.target.value})}
+              onBlur={()=>setEditing(false)} onKeyDown={e=>e.key==="Enter"&&setEditing(false)}/>
+          : <span style={{flex:1,fontSize:13,color:task.done?"#333":"#d0d0e8",textDecoration:task.done?"line-through":"none",cursor:"text"}}
+              onClick={()=>!task.done&&setEditing(true)}>{task.title}</span>
+        }
+        {showCat && <span style={{fontSize:9,color:"#555",background:"#141422",padding:"2px 5px",borderRadius:20,flexShrink:0}}>{task.cat}</span>}
+        {effectiveMins>0 && <span className="mb">{fmtMins(effectiveMins)}</span>}
+        <DueTag dueDate={task.dueDate}/>
+        {task.priority==="high" && <span style={{color:"#ff8080",fontSize:12,flexShrink:0}}>!</span>}
+        <button className="del" onClick={()=>onDelete(task.id)}>×</button>
+      </div>
+      <SubTasks subtasks={task.subtasks||[]} onChange={subs=>onUpdate(task.id,{subtasks:subs})}/>
+    </div>
+  );
 }
 
 function AddTask({onAdd, defaultCat, showCat=false}) {
-const [open,setOpen] = useState(false);
-const [title,setTitle] = useState(””);
-const [dueDate,setDueDate] = useState(””);
-const [mins,setMins] = useState(30);
-const [priority,setPriority] = useState(“medium”);
-const [cat,setCat] = useState(defaultCat||“academic”);
-const add = () => {
-if (!title.trim()) return;
-onAdd({id:uid(),title:title.trim(),cat,dueDate,mins:+mins,priority,done:false,notes:””,subtasks:[]});
-setTitle(””); setDueDate(””); setMins(30); setOpen(false);
-};
-if (!open) return <button className=“btn-ghost” style={{width:“100%”,marginTop:12}} onClick={()=>setOpen(true)}>+ Add task</button>;
-return (
-<div style={{marginTop:12,background:”#09090f”,border:“1px solid #1a1a2a”,borderRadius:12,padding:14,display:“flex”,flexDirection:“column”,gap:8}}>
-<input className=“inp” value={title} onChange={e=>setTitle(e.target.value)} placeholder=“Task name…” autoFocus onKeyDown={e=>e.key===“Enter”&&add()}/>
-<div style={{display:“flex”,gap:8,flexWrap:“wrap”}}>
-<input className=“inp-sm” type=“date” value={dueDate} onChange={e=>setDueDate(e.target.value)} style={{flex:1}}/>
-<input className=“inp-sm” type=“number” value={mins} onChange={e=>setMins(e.target.value)} placeholder=“mins” style={{width:70}}/>
-<select className=“inp-sm” value={priority} onChange={e=>setPriority(e.target.value)}>
-<option value="high">🔴 High</option>
-<option value="medium">🟡 Medium</option>
-<option value="low">⚪ Low</option>
-</select>
-{showCat && <select className=“inp-sm” value={cat} onChange={e=>setCat(e.target.value)}>
-{CATS.map(c=><option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
-</select>}
-</div>
-<div style={{display:“flex”,gap:8}}>
-<button className="btn-p" onClick={add} style={{flex:1}}>+ Add</button>
-<button className=“btn-ghost” onClick={()=>setOpen(false)}>cancel</button>
-</div>
-</div>
-);
+  const [open,setOpen] = useState(false);
+  const [title,setTitle] = useState("");
+  const [dueDate,setDueDate] = useState("");
+  const [mins,setMins] = useState(30);
+  const [priority,setPriority] = useState("medium");
+  const [cat,setCat] = useState(defaultCat||"academic");
+  const add = () => {
+    if (!title.trim()) return;
+    onAdd({id:uid(),title:title.trim(),cat,dueDate,mins:+mins,priority,done:false,notes:"",subtasks:[]});
+    setTitle(""); setDueDate(""); setMins(30); setOpen(false);
+  };
+  if (!open) return <button className="btn-ghost" style={{width:"100%",marginTop:12}} onClick={()=>setOpen(true)}>+ Add task</button>;
+  return (
+    <div style={{marginTop:12,background:"#09090f",border:"1px solid #1a1a2a",borderRadius:12,padding:14,display:"flex",flexDirection:"column",gap:8}}>
+      <input className="inp" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Task name…" autoFocus onKeyDown={e=>e.key==="Enter"&&add()}/>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <input className="inp-sm" type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)} style={{flex:1}}/>
+        <input className="inp-sm" type="number" value={mins} onChange={e=>setMins(e.target.value)} placeholder="mins" style={{width:70}}/>
+        <select className="inp-sm" value={priority} onChange={e=>setPriority(e.target.value)}>
+          <option value="high">🔴 High</option>
+          <option value="medium">🟡 Medium</option>
+          <option value="low">⚪ Low</option>
+        </select>
+        {showCat && <select className="inp-sm" value={cat} onChange={e=>setCat(e.target.value)}>
+          {CATS.map(c=><option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
+        </select>}
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <button className="btn-p" onClick={add} style={{flex:1}}>+ Add</button>
+        <button className="btn-ghost" onClick={()=>setOpen(false)}>cancel</button>
+      </div>
+    </div>
+  );
 }
 
 function ProjectCard({proj, onUpdate}) {
-const [expanded,setExpanded] = useState(false);
-const [newMs,setNewMs] = useState(””); const [newMsDate,setNewMsDate] = useState(””);
-const done = proj.tasks.filter(t=>t.done).length;
-const up = patch => onUpdate({…proj,…patch});
-const totalTime = proj.tasks.filter(t=>!t.done).reduce((s,t)=>{
-const m = t.subtasks?.length>0 ? t.subtasks.reduce((a,x)=>a+(x.mins||0),0) : t.mins||0;
-return s+m;
-},0);
-return (
-<div className=“card” style={{borderColor:proj.color+“33”}}>
-<div style={{display:“flex”,alignItems:“center”,gap:12}}>
-<span style={{fontSize:20}}>{proj.emoji}</span>
-<div style={{flex:1}}>
-<div style={{fontSize:14,fontWeight:600,color:”#e0e0f0”}}>{proj.name}</div>
-<div style={{fontSize:11,color:”#555”,marginTop:2}}>{done}/{proj.tasks.length} tasks · {fmtMins(totalTime)} left</div>
-</div>
-<Ring done={done} total={proj.tasks.length} color={proj.color} size={38}/>
-<button className=“btn-sm” onClick={()=>setExpanded(!expanded)}>{expanded?“▲”:“▼”}</button>
-</div>
-{expanded && (
-<div style={{marginTop:14}}>
-{proj.milestones?.length>0 && <>
-<div className="slabel">Milestones</div>
-{proj.milestones.map(m=>(
-<div key={m.id} className="ms">
-<button className={`chk ${m.done?"chk-on":""}`}
-onClick={()=>up({milestones:proj.milestones.map(x=>x.id===m.id?{…x,done:!x.done}:x)})}>
-{m.done?“✓”:””}
-</button>
-<span style={{flex:1,fontSize:13,color:m.done?”#333”:”#bbb”,textDecoration:m.done?“line-through”:“none”}}>{m.title}</span>
-<DueTag dueDate={m.dueDate}/>
-</div>
-))}
-</>}
-<div className="slabel" style={{marginTop:12}}>Tasks</div>
-{proj.tasks.map(t=>(
-<TaskRow key={t.id} task={t}
-onToggle={id=>up({tasks:proj.tasks.map(x=>x.id===id?{…x,done:!x.done}:x)})}
-onDelete={id=>up({tasks:proj.tasks.filter(x=>x.id!==id)})}
-onUpdate={(id,patch)=>up({tasks:proj.tasks.map(x=>x.id===id?{…x,…patch}:x)})}/>
-))}
-<AddTask onAdd={t=>up({tasks:[…proj.tasks,t]})} defaultCat=“projects”/>
-<div style={{marginTop:14,borderTop:“1px solid #141422”,paddingTop:12}}>
-<div className="slabel">Add milestone</div>
-<div style={{display:“flex”,gap:8}}>
-<input className=“inp-sm” value={newMs} onChange={e=>setNewMs(e.target.value)} placeholder=“Milestone…” style={{flex:1}}/>
-<input className=“inp-sm” type=“date” value={newMsDate} onChange={e=>setNewMsDate(e.target.value)}/>
-<button className=“btn-sm” onClick={()=>{
-if(!newMs.trim())return;
-up({milestones:[…(proj.milestones||[]),{id:uid(),title:newMs.trim(),dueDate:newMsDate,done:false}]});
-setNewMs(””);setNewMsDate(””);
-}}>+</button>
-</div>
-</div>
-</div>
-)}
-</div>
-);
+  const [expanded,setExpanded] = useState(false);
+  const [newMs,setNewMs] = useState(""); const [newMsDate,setNewMsDate] = useState("");
+  const done = proj.tasks.filter(t=>t.done).length;
+  const up = patch => onUpdate({...proj,...patch});
+  const totalTime = proj.tasks.filter(t=>!t.done).reduce((s,t)=>{
+    const m = t.subtasks?.length>0 ? t.subtasks.reduce((a,x)=>a+(x.mins||0),0) : t.mins||0;
+    return s+m;
+  },0);
+  return (
+    <div className="card" style={{borderColor:proj.color+"33"}}>
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <span style={{fontSize:20}}>{proj.emoji}</span>
+        <div style={{flex:1}}>
+          <div style={{fontSize:14,fontWeight:600,color:"#e0e0f0"}}>{proj.name}</div>
+          <div style={{fontSize:11,color:"#555",marginTop:2}}>{done}/{proj.tasks.length} tasks · {fmtMins(totalTime)} left</div>
+        </div>
+        <Ring done={done} total={proj.tasks.length} color={proj.color} size={38}/>
+        <button className="btn-sm" onClick={()=>setExpanded(!expanded)}>{expanded?"▲":"▼"}</button>
+      </div>
+      {expanded && (
+        <div style={{marginTop:14}}>
+          {proj.milestones?.length>0 && <>
+            <div className="slabel">Milestones</div>
+            {proj.milestones.map(m=>(
+              <div key={m.id} className="ms">
+                <button className={`chk ${m.done?"chk-on":""}`}
+                  onClick={()=>up({milestones:proj.milestones.map(x=>x.id===m.id?{...x,done:!x.done}:x)})}>
+                  {m.done?"✓":""}
+                </button>
+                <span style={{flex:1,fontSize:13,color:m.done?"#333":"#bbb",textDecoration:m.done?"line-through":"none"}}>{m.title}</span>
+                <DueTag dueDate={m.dueDate}/>
+              </div>
+            ))}
+          </>}
+          <div className="slabel" style={{marginTop:12}}>Tasks</div>
+          {proj.tasks.map(t=>(
+            <TaskRow key={t.id} task={t}
+              onToggle={id=>up({tasks:proj.tasks.map(x=>x.id===id?{...x,done:!x.done}:x)})}
+              onDelete={id=>up({tasks:proj.tasks.filter(x=>x.id!==id)})}
+              onUpdate={(id,patch)=>up({tasks:proj.tasks.map(x=>x.id===id?{...x,...patch}:x)})}/>
+          ))}
+          <AddTask onAdd={t=>up({tasks:[...proj.tasks,t]})} defaultCat="projects"/>
+          <div style={{marginTop:14,borderTop:"1px solid #141422",paddingTop:12}}>
+            <div className="slabel">Add milestone</div>
+            <div style={{display:"flex",gap:8}}>
+              <input className="inp-sm" value={newMs} onChange={e=>setNewMs(e.target.value)} placeholder="Milestone…" style={{flex:1}}/>
+              <input className="inp-sm" type="date" value={newMsDate} onChange={e=>setNewMsDate(e.target.value)}/>
+              <button className="btn-sm" onClick={()=>{
+                if(!newMs.trim())return;
+                up({milestones:[...(proj.milestones||[]),{id:uid(),title:newMs.trim(),dueDate:newMsDate,done:false}]});
+                setNewMs("");setNewMsDate("");
+              }}>+</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── main app ────────────────────────────────────────────────────────────
 function App() {
-const today=todayStr(), wk=weekStart(), di=dayIdx();
-const label = new Date().toLocaleDateString(“en-US”,{weekday:“long”,month:“long”,day:“numeric”});
+  const today=todayStr(), wk=weekStart(), di=dayIdx();
+  const label = new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
 
-const [tab,setTab] = useState(“today”);
-const [editSec,setEditSec] = useState(“daily”);
-const [syncStatus,setSyncStatus] = useState(””);
-const [showSyncModal,setShowSyncModal] = useState(false);
+  const [tab,setTab] = useState("today");
+  const [editSec,setEditSec] = useState("daily");
+  const [syncStatus,setSyncStatus] = useState("");
+  const [showSyncModal,setShowSyncModal] = useState(false);
 
-const [dailyHabits,setDailyHabits] = useStore(“kk-dh”, DEF_DAILY);
-const [weeklyHabits,setWeeklyHabits] = useStore(“kk-wh”, DEF_WEEKLY);
-const [dailyLog,setDailyLog] = useStore(`kk-dl-${today}`, {});
-const [weeklyLog,setWeeklyLog] = useStore(`kk-wl-${wk}`, {});
-const [streaks,setStreaks] = useStore(“kk-st”, {});
-const [tasks,setTasks] = useStore(“kk-tasks”, DEF_TASKS);
-const [projects,setProjects] = useStore(“kk-proj”, DEF_PROJ);
-const [travel,setTravel] = useStore(“kk-travel”, DEF_TRAVEL);
-const [socialEvents,setSocialEvents] = useStore(“kk-social”, []);
-const [therapyLog,setTherapyLog] = useStore(“kk-tlog”, []);
-const [theatrePrompts,setTheatrePrompts] = useStore(“kk-theatre”, DEF_THEATRE);
-const [weightLog,setWeightLog] = useStore(“kk-wlog”, []);
-const [sideQuests,setSideQuests] = useStore(“kk-sq”, DEF_SQ);
-const [brainDump,setBrainDump] = useStore(“kk-bd”, []);
-const [scriptUrl,setScriptUrl] = useStore(“kk-url”, “”);
+  const [dailyHabits,setDailyHabits] = useStore("kk-dh", DEF_DAILY);
+  const [weeklyHabits,setWeeklyHabits] = useStore("kk-wh", DEF_WEEKLY);
+  const [dailyLog,setDailyLog] = useStore(`kk-dl-${today}`, {});
+  const [weeklyLog,setWeeklyLog] = useStore(`kk-wl-${wk}`, {});
+  const [streaks,setStreaks] = useStore("kk-st", {});
+  const [tasks,setTasks] = useStore("kk-tasks", DEF_TASKS);
+  const [projects,setProjects] = useStore("kk-proj", DEF_PROJ);
+  const [travel,setTravel] = useStore("kk-travel", DEF_TRAVEL);
+  const [socialEvents,setSocialEvents] = useStore("kk-social", []);
+  const [therapyLog,setTherapyLog] = useStore("kk-tlog", []);
+  const [theatrePrompts,setTheatrePrompts] = useStore("kk-theatre", DEF_THEATRE);
+  const [weightLog,setWeightLog] = useStore("kk-wlog", []);
+  const [sideQuests,setSideQuests] = useStore("kk-sq", DEF_SQ);
+  const [brainDump,setBrainDump] = useStore("kk-bd", []);
+  const [scriptUrl,setScriptUrl] = useStore("kk-url", "");
 
-// keep syncRef.url in sync
-useEffect(()=>{ syncRef.url = scriptUrl; }, [scriptUrl]);
+  // keep syncRef.url in sync
+  useEffect(()=>{ syncRef.url = scriptUrl; }, [scriptUrl]);
 
-// forms
-const [bdText,setBdText] = useState(””); const [bdTag,setBdTag] = useState(””);
-const [socDesc,setSocDesc] = useState(””); const [socType,setSocType] = useState(“attended”); const [socInit,setSocInit] = useState(false);
-const [wInput,setWInput] = useState(””); const [wNotes,setWNotes] = useState(””);
-const [tcE,setTcE] = useState(0); const [tcC,setTcC] = useState(0); const [tcP,setTcP] = useState(0); const [tcN,setTcN] = useState(””);
-const [newDName,setNewDName] = useState(””); const [newDEmoji,setNewDEmoji] = useState(“⭐”); const [newDMins,setNewDMins] = useState(30);
-const [newWName,setNewWName] = useState(””); const [newWEmoji,setNewWEmoji] = useState(“⭐”); const [newWMins,setNewWMins] = useState(30); const [newWDays,setNewWDays] = useState([]);
+  // forms
+  const [bdText,setBdText] = useState(""); const [bdTag,setBdTag] = useState("");
+  const [socDesc,setSocDesc] = useState(""); const [socType,setSocType] = useState("attended"); const [socInit,setSocInit] = useState(false);
+  const [wInput,setWInput] = useState(""); const [wNotes,setWNotes] = useState("");
+  const [tcE,setTcE] = useState(0); const [tcC,setTcC] = useState(0); const [tcP,setTcP] = useState(0); const [tcN,setTcN] = useState("");
+  const [newDName,setNewDName] = useState(""); const [newDEmoji,setNewDEmoji] = useState("⭐"); const [newDMins,setNewDMins] = useState(30);
+  const [newWName,setNewWName] = useState(""); const [newWEmoji,setNewWEmoji] = useState("⭐"); const [newWMins,setNewWMins] = useState(30); const [newWDays,setNewWDays] = useState([]);
 
-// habit helpers
-const toggleDaily = id => {
-const u = {…dailyLog,[id]:!dailyLog[id]};
-setDailyLog(u);
-if (!dailyLog[id]) {
-const s={…streaks}, prev=s[id]||{count:0,lastDate:””};
-const yest=new Date(); yest.setDate(yest.getDate()-1);
-s[id]={count:prev.lastDate===yest.toISOString().split(“T”)[0]?prev.count+1:1,lastDate:today};
-setStreaks(s);
-}
-};
-const toggleWeekly = id => setWeeklyLog({…weeklyLog,[id]:!weeklyLog[id]});
-const toggleTask = id => setTasks(tasks.map(t=>t.id===id?{…t,done:!t.done}:t));
-const deleteTask = id => setTasks(tasks.filter(t=>t.id!==id));
-const updateTask = (id,patch) => setTasks(tasks.map(t=>t.id===id?{…t,…patch}:t));
-const catTasks = cat => tasks.filter(t=>t.cat===cat);
+  // habit helpers
+  const toggleDaily = id => {
+    const u = {...dailyLog,[id]:!dailyLog[id]};
+    setDailyLog(u);
+    if (!dailyLog[id]) {
+      const s={...streaks}, prev=s[id]||{count:0,lastDate:""};
+      const yest=new Date(); yest.setDate(yest.getDate()-1);
+      s[id]={count:prev.lastDate===yest.toISOString().split("T")[0]?prev.count+1:1,lastDate:today};
+      setStreaks(s);
+    }
+  };
+  const toggleWeekly = id => setWeeklyLog({...weeklyLog,[id]:!weeklyLog[id]});
+  const toggleTask = id => setTasks(tasks.map(t=>t.id===id?{...t,done:!t.done}:t));
+  const deleteTask = id => setTasks(tasks.filter(t=>t.id!==id));
+  const updateTask = (id,patch) => setTasks(tasks.map(t=>t.id===id?{...t,...patch}:t));
+  const catTasks = cat => tasks.filter(t=>t.cat===cat);
 
-const todayWeekly = weeklyHabits.filter(h=>h.days.includes(di));
-const dailyDone = dailyHabits.filter(h=>dailyLog[h.id]).length;
-const weeklyDone = weeklyHabits.filter(h=>weeklyLog[h.id]).length;
-const urgentTasks = tasks.filter(t=>!t.done&&((t.dueDate&&daysUntil(t.dueDate)<=2)||(!t.dueDate&&t.priority===“high”)));
-const weekTasks = tasks.filter(t=>!t.done&&t.dueDate&&daysUntil(t.dueDate)<=7).sort((a,b)=>daysUntil(a.dueDate)-daysUntil(b.dueDate));
+  const todayWeekly = weeklyHabits.filter(h=>h.days.includes(di));
+  const dailyDone = dailyHabits.filter(h=>dailyLog[h.id]).length;
+  const weeklyDone = weeklyHabits.filter(h=>weeklyLog[h.id]).length;
+  const urgentTasks = tasks.filter(t=>!t.done&&((t.dueDate&&daysUntil(t.dueDate)<=2)||(!t.dueDate&&t.priority==="high")));
+  const weekTasks = tasks.filter(t=>!t.done&&t.dueDate&&daysUntil(t.dueDate)<=7).sort((a,b)=>daysUntil(a.dueDate)-daysUntil(b.dueDate));
 
-const doSync = async () => {
-if (!scriptUrl) { setShowSyncModal(true); return; }
-setSyncStatus(“syncing”);
-try {
-await fetch(scriptUrl,{method:“POST”,body:JSON.stringify(buildPayload()),headers:{“Content-Type”:“application/json”},mode:“no-cors”});
-setSyncStatus(“ok”); setTimeout(()=>setSyncStatus(””),3000);
-} catch { setSyncStatus(“err”); setTimeout(()=>setSyncStatus(””),4000); }
-};
+  const doSync = async () => {
+    if (!scriptUrl) { setShowSyncModal(true); return; }
+    setSyncStatus("syncing");
+    try {
+      await fetch(scriptUrl,{method:"POST",body:JSON.stringify(buildPayload()),headers:{"Content-Type":"application/json"},mode:"no-cors"});
+      setSyncStatus("ok"); setTimeout(()=>setSyncStatus(""),3000);
+    } catch { setSyncStatus("err"); setTimeout(()=>setSyncStatus(""),4000); }
+  };
 
-const addBd = () => {
-if (!bdText.trim()) return;
-setBrainDump([{id:uid(),text:bdText.trim(),date:today,tag:bdTag,moved:false},…brainDump]);
-setBdText(””); setBdTag(””);
-};
-const moveBd = (id,cat) => {
-const item = brainDump.find(b=>b.id===id); if (!item) return;
-setTasks(prev=>[…prev,{id:uid(),title:item.text,cat,dueDate:””,mins:30,priority:“medium”,done:false,notes:“from brain dump”,subtasks:[]}]);
-setBrainDump(brainDump.map(b=>b.id===id?{…b,moved:true,movedTo:cat}:b));
-};
+  const addBd = () => {
+    if (!bdText.trim()) return;
+    setBrainDump([{id:uid(),text:bdText.trim(),date:today,tag:bdTag,moved:false},...brainDump]);
+    setBdText(""); setBdTag("");
+  };
+  const moveBd = (id,cat) => {
+    const item = brainDump.find(b=>b.id===id); if (!item) return;
+    setTasks(prev=>[...prev,{id:uid(),title:item.text,cat,dueDate:"",mins:30,priority:"medium",done:false,notes:"from brain dump",subtasks:[]}]);
+    setBrainDump(brainDump.map(b=>b.id===id?{...b,moved:true,movedTo:cat}:b));
+  };
 
-const G = {display:“flex”,flexDirection:“column”,gap:14};
-const NAV = [[“today”,“Today”],[“week”,“Week”],[“habits”,“Habits”],[“academic”,“Academic”],[“jobsearch”,“Job Search”],[“projects”,“Projects”],[“family”,“Family”],[“travel”,“Travel”],[“social”,“Social”],[“therapy”,“Therapy”],[“sidequests”,“Side Quests”],[“weightloss”,“Weight”],[“lifeadmin”,“Life Admin”],[“braindump”,“🧠 Dump”],[“edit”,“Edit”]];
+  const G = {display:"flex",flexDirection:"column",gap:14};
+  const NAV = [["today","Today"],["week","Week"],["habits","Habits"],["academic","Academic"],["jobsearch","Job Search"],["projects","Projects"],["family","Family"],["travel","Travel"],["social","Social"],["therapy","Therapy"],["sidequests","Side Quests"],["weightloss","Weight"],["lifeadmin","Life Admin"],["braindump","🧠 Dump"],["edit","Edit"]];
 
-return (
-<div style={{minHeight:“100vh”,background:”#09090f”,padding:“20px 14px 40px”,maxWidth:660,margin:“0 auto”}}>
+  return (
+    <div style={{minHeight:"100vh",background:"#09090f",padding:"20px 14px 40px",maxWidth:660,margin:"0 auto"}}>
 
-```
-  {/* header */}
-  <div style={{display:"flex",alignItems:"center",marginBottom:18}}>
-    <div style={{flex:1}}>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
-        <h1 style={{fontFamily:"'DM Serif Display',serif",fontSize:24,fontWeight:400,letterSpacing:"-0.3px"}}>Kanchan's HQ</h1>
-        <span style={{color:"#c5b3ff",fontSize:16}}>✦</span>
-      </div>
-      <p style={{fontSize:11,color:"#333"}}>{label}</p>
-    </div>
-    <button className="btn-sync" onClick={doSync}>
-      {syncStatus==="syncing"?"⟳ Syncing…":syncStatus==="ok"?"✓ Synced!":syncStatus==="err"?"✗ Error":"⟳ Sync to Cal"}
-    </button>
-  </div>
-
-  {/* nav */}
-  <div className="nav">
-    {NAV.map(([k,l])=><button key={k} className={`tab ${tab===k?"t-on":"t-off"}`} onClick={()=>setTab(k)}>{l}</button>)}
-  </div>
-
-  {/* sync modal */}
-  {showSyncModal && (
-    <div className="modal-bg" onClick={()=>setShowSyncModal(false)}>
-      <div className="modal-box" onClick={e=>e.stopPropagation()}>
-        <div style={{fontFamily:"'DM Serif Display',serif",fontSize:18,marginBottom:8}}>Connect Google Calendar</div>
-        <p style={{fontSize:12,color:"#888",lineHeight:1.8,marginBottom:14}}>
-          1. Go to <strong style={{color:"#c5b3ff"}}>script.google.com</strong><br/>
-          2. Paste the <strong style={{color:"#c5b3ff"}}>kanchan-calendar-sync.gs</strong> code<br/>
-          3. Deploy → New deployment → Web app<br/>
-          4. Execute as: Me · Access: Anyone<br/>
-          5. Copy the URL and paste below
-        </p>
-        <input className="inp" value={scriptUrl} onChange={e=>setScriptUrl(e.target.value)}
-          placeholder="https://script.google.com/macros/s/…/exec" style={{marginBottom:10}}/>
-        <div style={{display:"flex",gap:8}}>
-          <button className="btn-p" onClick={()=>{setShowSyncModal(false);doSync();}}>Save & Sync</button>
-          <button className="btn-ghost" onClick={()=>setShowSyncModal(false)}>Cancel</button>
-        </div>
-      </div>
-    </div>
-  )}
-
-  {/* TODAY */}
-  {tab==="today" && <div style={G}>
-    <div className="card" style={{display:"flex",alignItems:"center",gap:16}}>
-      <Ring done={dailyDone} total={dailyHabits.length}/>
-      <div style={{flex:1}}>
-        <div style={{fontSize:11,color:"#555",marginBottom:2}}>Daily habits</div>
-        <div style={{fontSize:18,fontFamily:"'DM Serif Display',serif"}}>{dailyDone}<span style={{fontSize:12,color:"#444"}}> / {dailyHabits.length}</span></div>
-        <div className="prog"><div className="prog-f" style={{width:`${dailyHabits.length?dailyDone/dailyHabits.length*100:0}%`}}/></div>
-      </div>
-      <div style={{textAlign:"right"}}>
-        <div style={{fontSize:10,color:"#444",marginBottom:2}}>Time remaining</div>
-        <div style={{fontSize:13,fontWeight:600,color:"#8be8ff"}}>{fmtMins(dailyHabits.filter(h=>!dailyLog[h.id]).reduce((s,h)=>s+h.mins,0))}</div>
-        <div style={{fontSize:10,color:"#444",marginTop:4}}>Urgent</div>
-        <div style={{fontSize:16,fontWeight:700,color:urgentTasks.length>0?"#ff8080":"#6be5a0"}}>{urgentTasks.length}</div>
-      </div>
-    </div>
-
-    <div className="card">
-      <div className="slabel">Daily habits — check off here</div>
-      {dailyHabits.map(h=>{
-        const done=!!dailyLog[h.id], s=streaks[h.id]?.count||0;
-        return (
-          <div key={h.id} className="row">
-            <button className={`chk ${done?"chk-on":""}`} onClick={()=>toggleDaily(h.id)}>{done?"✓":""}</button>
-            <span style={{fontSize:14,flexShrink:0}}>{h.emoji}</span>
-            <span style={{flex:1,fontSize:13,color:done?"#333":"#ccc",textDecoration:done?"line-through":"none",transition:"color 0.2s"}}>{h.name}</span>
-            <span className="mb">{fmtMins(h.mins)}</span>
-            {s>1 && <span className="streak">🔥{s}</span>}
+      {/* header */}
+      <div style={{display:"flex",alignItems:"center",marginBottom:18}}>
+        <div style={{flex:1}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
+            <h1 style={{fontFamily:"'DM Serif Display',serif",fontSize:24,fontWeight:400,letterSpacing:"-0.3px"}}>Kanchan's HQ</h1>
+            <span style={{color:"#c5b3ff",fontSize:16}}>✦</span>
           </div>
-        );
-      })}
-    </div>
+          <p style={{fontSize:11,color:"#333"}}>{label}</p>
+        </div>
+        <button className="btn-sync" onClick={doSync}>
+          {syncStatus==="syncing"?"⟳ Syncing…":syncStatus==="ok"?"✓ Synced!":syncStatus==="err"?"✗ Error":"⟳ Sync to Cal"}
+        </button>
+      </div>
 
-    {todayWeekly.length>0 && (
-      <div className="card">
-        <div className="slabel">Also today (weekly)</div>
-        {todayWeekly.map(h=>{
+      {/* nav */}
+      <div className="nav">
+        {NAV.map(([k,l])=><button key={k} className={`tab ${tab===k?"t-on":"t-off"}`} onClick={()=>setTab(k)}>{l}</button>)}
+      </div>
+
+      {/* sync modal */}
+      {showSyncModal && (
+        <div className="modal-bg" onClick={()=>setShowSyncModal(false)}>
+          <div className="modal-box" onClick={e=>e.stopPropagation()}>
+            <div style={{fontFamily:"'DM Serif Display',serif",fontSize:18,marginBottom:8}}>Connect Google Calendar</div>
+            <p style={{fontSize:12,color:"#888",lineHeight:1.8,marginBottom:14}}>
+              1. Go to <strong style={{color:"#c5b3ff"}}>script.google.com</strong><br/>
+              2. Paste the <strong style={{color:"#c5b3ff"}}>kanchan-calendar-sync.gs</strong> code<br/>
+              3. Deploy → New deployment → Web app<br/>
+              4. Execute as: Me · Access: Anyone<br/>
+              5. Copy the URL and paste below
+            </p>
+            <input className="inp" value={scriptUrl} onChange={e=>setScriptUrl(e.target.value)}
+              placeholder="https://script.google.com/macros/s/…/exec" style={{marginBottom:10}}/>
+            <div style={{display:"flex",gap:8}}>
+              <button className="btn-p" onClick={()=>{setShowSyncModal(false);doSync();}}>Save & Sync</button>
+              <button className="btn-ghost" onClick={()=>setShowSyncModal(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TODAY */}
+      {tab==="today" && <div style={G}>
+        <div className="card" style={{display:"flex",alignItems:"center",gap:16}}>
+          <Ring done={dailyDone} total={dailyHabits.length}/>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:"#555",marginBottom:2}}>Daily habits</div>
+            <div style={{fontSize:18,fontFamily:"'DM Serif Display',serif"}}>{dailyDone}<span style={{fontSize:12,color:"#444"}}> / {dailyHabits.length}</span></div>
+            <div className="prog"><div className="prog-f" style={{width:`${dailyHabits.length?dailyDone/dailyHabits.length*100:0}%`}}/></div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:10,color:"#444",marginBottom:2}}>Time remaining</div>
+            <div style={{fontSize:13,fontWeight:600,color:"#8be8ff"}}>{fmtMins(dailyHabits.filter(h=>!dailyLog[h.id]).reduce((s,h)=>s+h.mins,0))}</div>
+            <div style={{fontSize:10,color:"#444",marginTop:4}}>Urgent</div>
+            <div style={{fontSize:16,fontWeight:700,color:urgentTasks.length>0?"#ff8080":"#6be5a0"}}>{urgentTasks.length}</div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="slabel">Daily habits — check off here</div>
+          {dailyHabits.map(h=>{
+            const done=!!dailyLog[h.id], s=streaks[h.id]?.count||0;
+            return (
+              <div key={h.id} className="row">
+                <button className={`chk ${done?"chk-on":""}`} onClick={()=>toggleDaily(h.id)}>{done?"✓":""}</button>
+                <span style={{fontSize:14,flexShrink:0}}>{h.emoji}</span>
+                <span style={{flex:1,fontSize:13,color:done?"#333":"#ccc",textDecoration:done?"line-through":"none",transition:"color 0.2s"}}>{h.name}</span>
+                <span className="mb">{fmtMins(h.mins)}</span>
+                {s>1 && <span className="streak">🔥{s}</span>}
+              </div>
+            );
+          })}
+        </div>
+
+        {todayWeekly.length>0 && (
+          <div className="card">
+            <div className="slabel">Also today (weekly)</div>
+            {todayWeekly.map(h=>{
+              const done=!!weeklyLog[h.id];
+              return (
+                <div key={h.id} className="row">
+                  <button className={`chk ${done?"chk-on":""}`} onClick={()=>toggleWeekly(h.id)}>{done?"✓":""}</button>
+                  <span style={{fontSize:14,flexShrink:0}}>{h.emoji}</span>
+                  <span style={{flex:1,fontSize:13,color:done?"#333":"#ccc",textDecoration:done?"line-through":"none"}}>{h.name}</span>
+                  <span className="mb">{fmtMins(h.mins)}</span>
+                  <span style={{fontSize:9,color:"#444",background:"#141422",padding:"2px 5px",borderRadius:20}}>weekly</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {urgentTasks.length>0 && (
+          <div className="card" style={{borderColor:"#ff708018"}}>
+            <div className="slabel" style={{color:"#ff8080"}}>🔴 Urgent — do not drop</div>
+            {urgentTasks.map(t=><TaskRow key={t.id} task={t} showCat onToggle={toggleTask} onDelete={deleteTask} onUpdate={updateTask}/>)}
+          </div>
+        )}
+      </div>}
+
+      {/* WEEK */}
+      {tab==="week" && <div style={G}>
+        <div className="card" style={{display:"flex",alignItems:"center",gap:16}}>
+          <Ring done={weeklyDone} total={weeklyHabits.length} color="#8be8ff"/>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:"#555",marginBottom:2}}>Weekly habits</div>
+            <div style={{fontSize:18,fontFamily:"'DM Serif Display',serif"}}>{weeklyDone}<span style={{fontSize:12,color:"#444"}}> / {weeklyHabits.length}</span></div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:10,color:"#444",marginBottom:2}}>Due this week</div>
+            <div style={{fontSize:18,fontWeight:700,color:"#c5b3ff"}}>{weekTasks.length}</div>
+          </div>
+        </div>
+        {weeklyHabits.map(h=>{
           const done=!!weeklyLog[h.id];
           return (
-            <div key={h.id} className="row">
-              <button className={`chk ${done?"chk-on":""}`} onClick={()=>toggleWeekly(h.id)}>{done?"✓":""}</button>
-              <span style={{fontSize:14,flexShrink:0}}>{h.emoji}</span>
-              <span style={{flex:1,fontSize:13,color:done?"#333":"#ccc",textDecoration:done?"line-through":"none"}}>{h.name}</span>
-              <span className="mb">{fmtMins(h.mins)}</span>
-              <span style={{fontSize:9,color:"#444",background:"#141422",padding:"2px 5px",borderRadius:20}}>weekly</span>
+            <div key={h.id} className="card" style={{padding:"14px 16px",borderColor:done?"#c5b3ff22":"#1a1a2a"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                <button className={`chk ${done?"chk-on":""}`} onClick={()=>toggleWeekly(h.id)}>{done?"✓":""}</button>
+                <span style={{fontSize:14}}>{h.emoji}</span>
+                <span style={{flex:1,fontSize:13,fontWeight:500,color:done?"#333":"#ddd",textDecoration:done?"line-through":"none"}}>{h.name}</span>
+                <span className="mb">{fmtMins(h.mins)}</span>
+              </div>
+              <div style={{display:"flex",gap:4,marginLeft:31,flexWrap:"wrap"}}>
+                {DAYS.map((d,i)=><span key={i} className={`dp ${h.days.includes(i)?"dp-on":"dp-off"} ${i===di?"dp-td":""}`} style={{cursor:"default",opacity:h.days.includes(i)?1:0.25}}>{d}</span>)}
+              </div>
             </div>
           );
         })}
-      </div>
-    )}
+        {weekTasks.length>0 && <div className="card">
+          <div className="slabel">Tasks due this week</div>
+          {weekTasks.map(t=><TaskRow key={t.id} task={t} showCat onToggle={toggleTask} onDelete={deleteTask} onUpdate={updateTask}/>)}
+        </div>}
+      </div>}
 
-    {urgentTasks.length>0 && (
-      <div className="card" style={{borderColor:"#ff708018"}}>
-        <div className="slabel" style={{color:"#ff8080"}}>🔴 Urgent — do not drop</div>
-        {urgentTasks.map(t=><TaskRow key={t.id} task={t} showCat onToggle={toggleTask} onDelete={deleteTask} onUpdate={updateTask}/>)}
-      </div>
-    )}
-  </div>}
-
-  {/* WEEK */}
-  {tab==="week" && <div style={G}>
-    <div className="card" style={{display:"flex",alignItems:"center",gap:16}}>
-      <Ring done={weeklyDone} total={weeklyHabits.length} color="#8be8ff"/>
-      <div style={{flex:1}}>
-        <div style={{fontSize:11,color:"#555",marginBottom:2}}>Weekly habits</div>
-        <div style={{fontSize:18,fontFamily:"'DM Serif Display',serif"}}>{weeklyDone}<span style={{fontSize:12,color:"#444"}}> / {weeklyHabits.length}</span></div>
-      </div>
-      <div style={{textAlign:"right"}}>
-        <div style={{fontSize:10,color:"#444",marginBottom:2}}>Due this week</div>
-        <div style={{fontSize:18,fontWeight:700,color:"#c5b3ff"}}>{weekTasks.length}</div>
-      </div>
-    </div>
-    {weeklyHabits.map(h=>{
-      const done=!!weeklyLog[h.id];
-      return (
-        <div key={h.id} className="card" style={{padding:"14px 16px",borderColor:done?"#c5b3ff22":"#1a1a2a"}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-            <button className={`chk ${done?"chk-on":""}`} onClick={()=>toggleWeekly(h.id)}>{done?"✓":""}</button>
-            <span style={{fontSize:14}}>{h.emoji}</span>
-            <span style={{flex:1,fontSize:13,fontWeight:500,color:done?"#333":"#ddd",textDecoration:done?"line-through":"none"}}>{h.name}</span>
-            <span className="mb">{fmtMins(h.mins)}</span>
-          </div>
-          <div style={{display:"flex",gap:4,marginLeft:31,flexWrap:"wrap"}}>
-            {DAYS.map((d,i)=><span key={i} className={`dp ${h.days.includes(i)?"dp-on":"dp-off"} ${i===di?"dp-td":""}`} style={{cursor:"default",opacity:h.days.includes(i)?1:0.25}}>{d}</span>)}
+      {/* HABITS */}
+      {tab==="habits" && <div style={G}>
+        <div style={{fontSize:12,color:"#555",background:"#0f0f1c",border:"1px solid #1a1a2a",borderRadius:10,padding:"10px 14px"}}>
+          ✓ Check off habits in the <strong style={{color:"#c5b3ff"}}>Today</strong> tab. This tab shows streaks and schedules.
+        </div>
+        <div className="card">
+          <div className="slabel">Daily — time blocks + streaks</div>
+          {dailyHabits.map(h=>{
+            const s=streaks[h.id]?.count||0;
+            return <div key={h.id} className="row">
+              <span style={{fontSize:14,flexShrink:0}}>{h.emoji}</span>
+              <span style={{flex:1,fontSize:13,color:"#ccc"}}>{h.name}</span>
+              <span className="mb">{fmtMins(h.mins)}</span>
+              {s>1 && <span className="streak">🔥{s}d</span>}
+            </div>;
+          })}
+          <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid #141422",display:"flex",justifyContent:"space-between"}}>
+            <span style={{fontSize:11,color:"#555"}}>Total daily habit time</span>
+            <span style={{fontSize:13,fontWeight:600,color:"#8be8ff"}}>{fmtMins(dailyHabits.reduce((s,h)=>s+h.mins,0))}</span>
           </div>
         </div>
-      );
-    })}
-    {weekTasks.length>0 && <div className="card">
-      <div className="slabel">Tasks due this week</div>
-      {weekTasks.map(t=><TaskRow key={t.id} task={t} showCat onToggle={toggleTask} onDelete={deleteTask} onUpdate={updateTask}/>)}
-    </div>}
-  </div>}
-
-  {/* HABITS */}
-  {tab==="habits" && <div style={G}>
-    <div style={{fontSize:12,color:"#555",background:"#0f0f1c",border:"1px solid #1a1a2a",borderRadius:10,padding:"10px 14px"}}>
-      ✓ Check off habits in the <strong style={{color:"#c5b3ff"}}>Today</strong> tab. This tab shows streaks and schedules.
-    </div>
-    <div className="card">
-      <div className="slabel">Daily — time blocks + streaks</div>
-      {dailyHabits.map(h=>{
-        const s=streaks[h.id]?.count||0;
-        return <div key={h.id} className="row">
-          <span style={{fontSize:14,flexShrink:0}}>{h.emoji}</span>
-          <span style={{flex:1,fontSize:13,color:"#ccc"}}>{h.name}</span>
-          <span className="mb">{fmtMins(h.mins)}</span>
-          {s>1 && <span className="streak">🔥{s}d</span>}
-        </div>;
-      })}
-      <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid #141422",display:"flex",justifyContent:"space-between"}}>
-        <span style={{fontSize:11,color:"#555"}}>Total daily habit time</span>
-        <span style={{fontSize:13,fontWeight:600,color:"#8be8ff"}}>{fmtMins(dailyHabits.reduce((s,h)=>s+h.mins,0))}</span>
-      </div>
-    </div>
-    <div className="card">
-      <div className="slabel">Weekly schedule</div>
-      {weeklyHabits.map(h=>(
-        <div key={h.id} style={{paddingBottom:12,marginBottom:12,borderBottom:"1px solid #141422"}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-            <span style={{fontSize:14}}>{h.emoji}</span>
-            <span style={{flex:1,fontSize:13,color:"#ccc"}}>{h.name}</span>
-            <span className="mb">{fmtMins(h.mins)}</span>
-          </div>
-          <div style={{display:"flex",gap:4,marginLeft:24,flexWrap:"wrap"}}>
-            {DAYS.map((d,i)=><span key={i} className={`dp ${h.days.includes(i)?"dp-on":"dp-off"} ${i===di?"dp-td":""}`} style={{cursor:"default",opacity:h.days.includes(i)?1:0.25}}>{d}</span>)}
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>}
-
-  {/* ACADEMIC */}
-  {tab==="academic" && <div style={G}>
-    <div className="card">
-      <div className="slabel">Academic tasks</div>
-      {catTasks("academic").map(t=><TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} onUpdate={updateTask}/>)}
-      <AddTask onAdd={t=>setTasks([...tasks,t])} defaultCat="academic"/>
-    </div>
-  </div>}
-
-  {/* JOB SEARCH */}
-  {tab==="jobsearch" && <div style={G}>
-    <div className="card" style={{borderColor:"#ffd93d18"}}>
-      <div className="slabel" style={{color:"#ffd93d"}}>💼 Job Search</div>
-      {catTasks("jobsearch").map(t=><TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} onUpdate={updateTask}/>)}
-      <AddTask onAdd={t=>setTasks([...tasks,t])} defaultCat="jobsearch"/>
-    </div>
-  </div>}
-
-  {/* PROJECTS */}
-  {tab==="projects" && <div style={G}>
-    {projects.map(p=><ProjectCard key={p.id} proj={p} onUpdate={up=>setProjects(projects.map(x=>x.id===up.id?up:x))}/>)}
-    <button className="btn-ghost" style={{width:"100%"}} onClick={()=>{
-      const name=prompt("Project name?"); if(!name)return;
-      const emoji=prompt("Emoji?")||"🚀";
-      setProjects([...projects,{id:uid(),name,emoji,color:"#c5b3ff",tasks:[],milestones:[]}]);
-    }}>+ New project</button>
-  </div>}
-
-  {/* FAMILY */}
-  {tab==="family" && <div style={G}>
-    <div className="card">
-      <div className="slabel">Daily — check off in Today tab</div>
-      <div className="row" style={{opacity:!!dailyLog["d8"]?0.4:1}}>
-        <div className={`chk ${!!dailyLog["d8"]?"chk-on":""}`} style={{cursor:"default"}}>{!!dailyLog["d8"]?"✓":""}</div>
-        <span style={{fontSize:14}}>📞</span>
-        <span style={{flex:1,fontSize:13,color:"#ccc"}}>Call mom + Dolly</span>
-        <span className="mb">20m</span>
-        {(streaks["d8"]?.count||0)>1 && <span className="streak">🔥{streaks["d8"].count}d</span>}
-      </div>
-    </div>
-    <div className="card">
-      <div className="slabel">Family tasks</div>
-      {catTasks("family").map(t=><TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} onUpdate={updateTask}/>)}
-      <AddTask onAdd={t=>setTasks([...tasks,t])} defaultCat="family"/>
-    </div>
-  </div>}
-
-  {/* TRAVEL */}
-  {tab==="travel" && <div style={G}>
-    {travel.map(p=><ProjectCard key={p.id} proj={p} onUpdate={up=>setTravel(travel.map(x=>x.id===up.id?up:x))}/>)}
-    <button className="btn-ghost" style={{width:"100%"}} onClick={()=>{
-      const name=prompt("Trip name?"); if(!name)return;
-      setTravel([...travel,{id:uid(),name,emoji:"✈️",color:"#99ffcc",tasks:[],milestones:[]}]);
-    }}>+ New trip</button>
-  </div>}
-
-  {/* SOCIAL */}
-  {tab==="social" && <div style={G}>
-    <div className="card">
-      <div className="slabel">Log social event</div>
-      <input className="inp" value={socDesc} onChange={e=>setSocDesc(e.target.value)} placeholder="What happened? Who was there?" style={{marginBottom:8}}/>
-      <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-        <select className="inp-sm" value={socType} onChange={e=>setSocType(e.target.value)}>
-          <option value="attended">Attended event</option>
-          <option value="initiated">I initiated</option>
-          <option value="1on1">1-on-1 hangout</option>
-          <option value="dinner">Dinner / meal</option>
-          <option value="study">Study session</option>
-        </select>
-        <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"#888",cursor:"pointer"}}>
-          <input type="checkbox" checked={socInit} onChange={e=>setSocInit(e.target.checked)}/> I initiated
-        </label>
-      </div>
-      <button className="btn-p" style={{width:"100%"}} onClick={()=>{
-        if(!socDesc.trim())return;
-        setSocialEvents([{id:uid(),date:today,description:socDesc.trim(),type:socType,initiated:socInit},...socialEvents]);
-        setSocDesc(""); setSocInit(false);
-      }}>+ Log</button>
-    </div>
-    <div style={{display:"flex",gap:8}}>
-      {[[socialEvents.filter(e=>e.date.startsWith(today.slice(0,7))).length,"#c5b3ff","This month"],
-        [socialEvents.filter(e=>e.initiated&&e.date.startsWith(today.slice(0,7))).length,"#6be5a0","I initiated"],
-        [socialEvents.length,"#8be8ff","All time"]].map(([n,c,l])=>(
-        <div key={l} className="card" style={{flex:1,textAlign:"center",padding:"12px 8px"}}>
-          <div style={{fontSize:22,fontWeight:700,color:c}}>{n}</div>
-          <div style={{fontSize:10,color:"#444",marginTop:2,letterSpacing:1,textTransform:"uppercase"}}>{l}</div>
-        </div>
-      ))}
-    </div>
-    {socialEvents.length>0 && <div className="card">
-      <div className="slabel">Social log</div>
-      {socialEvents.slice(0,20).map(e=>(
-        <div key={e.id} className="row">
-          <span style={{fontSize:11,color:"#555",fontFamily:"monospace",flexShrink:0,width:55}}>{fmtDate(e.date)}</span>
-          <span style={{flex:1,fontSize:13,color:"#ccc"}}>{e.description}</span>
-          {e.initiated && <span style={{fontSize:9,color:"#c5b3ff",background:"#c5b3ff12",padding:"2px 6px",borderRadius:20,flexShrink:0}}>initiated</span>}
-        </div>
-      ))}
-    </div>}
-  </div>}
-
-  {/* THERAPY */}
-  {tab==="therapy" && <div style={G}>
-    <div className="card" style={{borderColor:"#c5b3ff18"}}>
-      <div className="slabel">Daily check-in</div>
-      {[["Energy (1–10)",tcE,setTcE],["Confidence / recall (1–10)",tcC,setTcC],["Preference expressions today",tcP,setTcP]].map(([l,v,s])=>(
-        <div key={l} style={{marginBottom:12}}>
-          <div style={{fontSize:11,color:"#555",marginBottom:6}}>{l}</div>
-          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-            {[1,2,3,4,5,6,7,8,9,10].map(n=><button key={n} className={`score-btn ${v===n?"sel":""}`} onClick={()=>s(n)}>{n}</button>)}
-          </div>
-        </div>
-      ))}
-      <textarea className="inp" value={tcN} onChange={e=>setTcN(e.target.value)} placeholder="Notes…" style={{marginBottom:10,minHeight:60,resize:"vertical"}}/>
-      <button className="btn-p" style={{width:"100%"}} onClick={()=>{
-        if(!tcE)return;
-        setTherapyLog([{id:uid(),date:today,energy:tcE,confidence:tcC,preference:tcP,notes:tcN},...therapyLog]);
-        setTcE(0);setTcC(0);setTcP(0);setTcN("");
-      }}>Save check-in</button>
-    </div>
-    {therapyLog.length>0 && <div className="card">
-      <div className="slabel">History</div>
-      {therapyLog.slice(0,14).map(e=>(
-        <div key={e.id} className="row">
-          <span style={{fontSize:11,color:"#555",fontFamily:"monospace",width:55,flexShrink:0}}>{fmtDate(e.date)}</span>
-          <div style={{flex:1,display:"flex",gap:10}}>
-            <span style={{fontSize:12,color:"#c5b3ff"}}>⚡{e.energy}</span>
-            <span style={{fontSize:12,color:"#8be8ff"}}>🧠{e.confidence}</span>
-            <span style={{fontSize:12,color:"#ffd93d"}}>💬{e.preference}</span>
-          </div>
-          {e.notes && <span style={{fontSize:11,color:"#444",maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.notes}</span>}
-        </div>
-      ))}
-    </div>}
-    <div className="card">
-      <div className="slabel">Theatre prompts — perform until feelings come naturally</div>
-      <p style={{fontSize:12,color:"#555",lineHeight:1.7,marginBottom:12}}>One per day. The fakeness is the point — do it anyway.</p>
-      {theatrePrompts.map(p=>(
-        <div key={p.id} className="row">
-          <button className={`chk ${p.done?"chk-on":""}`} onClick={()=>setTheatrePrompts(theatrePrompts.map(x=>x.id===p.id?{...x,done:!x.done}:x))}>{p.done?"✓":""}</button>
-          <span style={{flex:1,fontSize:13,color:p.done?"#333":"#ccc",textDecoration:p.done?"line-through":"none"}}>{p.prompt}</span>
-        </div>
-      ))}
-      <input className="inp" style={{marginTop:10}} placeholder="Add new prompt…" onKeyDown={e=>{
-        if(e.key==="Enter"&&e.target.value.trim()){
-          setTheatrePrompts([...theatrePrompts,{id:uid(),prompt:e.target.value.trim(),done:false}]);
-          e.target.value="";
-        }
-      }}/>
-    </div>
-  </div>}
-
-  {/* SIDE QUESTS */}
-  {tab==="sidequests" && <div style={G}>
-    <p style={{fontSize:12,color:"#555",padding:"0 2px"}}>Reach goals — aim for at least once a month.</p>
-    {sideQuests.map(sq=>{
-      const last=sq.log.length>0?sq.log[sq.log.length-1].date:null;
-      const dAgo=last?Math.floor((new Date()-new Date(last))/86400000):999;
-      return (
-        <div key={sq.id} className="card" style={{borderColor:dAgo<=31?"#6be5a018":"#1a1a2a"}}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <span style={{fontSize:22}}>{sq.emoji}</span>
-            <div style={{flex:1}}>
-              <div style={{fontSize:14,fontWeight:500}}>{sq.name}</div>
-              <div style={{fontSize:11,color:dAgo<=31?"#6be5a0":"#555",marginTop:2}}>
-                {last?`Last: ${fmtDate(last)} (${dAgo}d ago)`:"Not done yet"}
+        <div className="card">
+          <div className="slabel">Weekly schedule</div>
+          {weeklyHabits.map(h=>(
+            <div key={h.id} style={{paddingBottom:12,marginBottom:12,borderBottom:"1px solid #141422"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                <span style={{fontSize:14}}>{h.emoji}</span>
+                <span style={{flex:1,fontSize:13,color:"#ccc"}}>{h.name}</span>
+                <span className="mb">{fmtMins(h.mins)}</span>
+              </div>
+              <div style={{display:"flex",gap:4,marginLeft:24,flexWrap:"wrap"}}>
+                {DAYS.map((d,i)=><span key={i} className={`dp ${h.days.includes(i)?"dp-on":"dp-off"} ${i===di?"dp-td":""}`} style={{cursor:"default",opacity:h.days.includes(i)?1:0.25}}>{d}</span>)}
               </div>
             </div>
-            <div style={{fontSize:10,color:"#444"}}>×{sq.log.length}</div>
-            <button className="btn-sm" onClick={()=>setSideQuests(sideQuests.map(x=>x.id===sq.id?{...x,log:[...x.log,{id:uid(),date:today}]}:x))}>✓ Did it</button>
+          ))}
+        </div>
+      </div>}
+
+      {/* ACADEMIC */}
+      {tab==="academic" && <div style={G}>
+        <div className="card">
+          <div className="slabel">Academic tasks</div>
+          {catTasks("academic").map(t=><TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} onUpdate={updateTask}/>)}
+          <AddTask onAdd={t=>setTasks([...tasks,t])} defaultCat="academic"/>
+        </div>
+      </div>}
+
+      {/* JOB SEARCH */}
+      {tab==="jobsearch" && <div style={G}>
+        <div className="card" style={{borderColor:"#ffd93d18"}}>
+          <div className="slabel" style={{color:"#ffd93d"}}>💼 Job Search</div>
+          {catTasks("jobsearch").map(t=><TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} onUpdate={updateTask}/>)}
+          <AddTask onAdd={t=>setTasks([...tasks,t])} defaultCat="jobsearch"/>
+        </div>
+      </div>}
+
+      {/* PROJECTS */}
+      {tab==="projects" && <div style={G}>
+        {projects.map(p=><ProjectCard key={p.id} proj={p} onUpdate={up=>setProjects(projects.map(x=>x.id===up.id?up:x))}/>)}
+        <button className="btn-ghost" style={{width:"100%"}} onClick={()=>{
+          const name=prompt("Project name?"); if(!name)return;
+          const emoji=prompt("Emoji?")||"🚀";
+          setProjects([...projects,{id:uid(),name,emoji,color:"#c5b3ff",tasks:[],milestones:[]}]);
+        }}>+ New project</button>
+      </div>}
+
+      {/* FAMILY */}
+      {tab==="family" && <div style={G}>
+        <div className="card">
+          <div className="slabel">Daily — check off in Today tab</div>
+          <div className="row" style={{opacity:!!dailyLog["d8"]?0.4:1}}>
+            <div className={`chk ${!!dailyLog["d8"]?"chk-on":""}`} style={{cursor:"default"}}>{!!dailyLog["d8"]?"✓":""}</div>
+            <span style={{fontSize:14}}>📞</span>
+            <span style={{flex:1,fontSize:13,color:"#ccc"}}>Call mom + Dolly</span>
+            <span className="mb">20m</span>
+            {(streaks["d8"]?.count||0)>1 && <span className="streak">🔥{streaks["d8"].count}d</span>}
           </div>
         </div>
-      );
-    })}
-    <button className="btn-ghost" style={{width:"100%"}} onClick={()=>{
-      const name=prompt("Side quest name?"); if(!name)return;
-      const emoji=prompt("Emoji?")||"⭐";
-      setSideQuests([...sideQuests,{id:uid(),name,emoji,log:[]}]);
-    }}>+ Add side quest</button>
-  </div>}
-
-  {/* WEIGHT LOSS */}
-  {tab==="weightloss" && <div style={G}>
-    <div className="card" style={{borderColor:"#ff8c4218"}}>
-      <div className="slabel">Goal: –15kg by June 15, 2026</div>
-      <div style={{display:"flex",gap:12,marginBottom:10,flexWrap:"wrap"}}>
-        <span style={{fontSize:11,color:"#555"}}>Days left: <strong style={{color:"#c5b3ff"}}>{daysUntil("2026-06-15")}</strong></span>
-        {weightLog.length>0 && <span style={{fontSize:11,color:"#555"}}>Latest: <strong style={{color:"#c5b3ff"}}>{weightLog[weightLog.length-1].weight}kg</strong></span>}
-      </div>
-      <div style={{display:"flex",gap:8,marginBottom:8}}>
-        <input className="inp" type="number" value={wInput} onChange={e=>setWInput(e.target.value)} placeholder="Weight (kg)" style={{flex:1}}/>
-        <input className="inp" value={wNotes} onChange={e=>setWNotes(e.target.value)} placeholder="Notes" style={{flex:2}}/>
-      </div>
-      <button className="btn-p" style={{width:"100%"}} onClick={()=>{
-        if(!wInput)return;
-        setWeightLog([...weightLog,{id:uid(),date:today,weight:+wInput,notes:wNotes}]);
-        setWInput(""); setWNotes("");
-      }}>Log weight</button>
-    </div>
-    {weightLog.length>1 && <div className="card">
-      <div className="slabel">Log</div>
-      {[...weightLog].reverse().slice(0,20).map(e=>(
-        <div key={e.id} className="row">
-          <span style={{fontSize:11,color:"#555",fontFamily:"monospace",flexShrink:0,width:55}}>{fmtDate(e.date)}</span>
-          <span style={{flex:1,fontSize:14,fontWeight:600,color:"#c5b3ff"}}>{e.weight}kg</span>
-          {e.notes && <span style={{fontSize:11,color:"#444"}}>{e.notes}</span>}
+        <div className="card">
+          <div className="slabel">Family tasks</div>
+          {catTasks("family").map(t=><TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} onUpdate={updateTask}/>)}
+          <AddTask onAdd={t=>setTasks([...tasks,t])} defaultCat="family"/>
         </div>
-      ))}
-    </div>}
-  </div>}
+      </div>}
 
-  {/* LIFE ADMIN */}
-  {tab==="lifeadmin" && <div style={G}>
-    <div className="card">
-      <div className="slabel">Life admin tasks</div>
-      {catTasks("lifeadmin").map(t=><TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} onUpdate={updateTask}/>)}
-      <AddTask onAdd={t=>setTasks([...tasks,t])} defaultCat="lifeadmin"/>
-    </div>
-  </div>}
+      {/* TRAVEL */}
+      {tab==="travel" && <div style={G}>
+        {travel.map(p=><ProjectCard key={p.id} proj={p} onUpdate={up=>setTravel(travel.map(x=>x.id===up.id?up:x))}/>)}
+        <button className="btn-ghost" style={{width:"100%"}} onClick={()=>{
+          const name=prompt("Trip name?"); if(!name)return;
+          setTravel([...travel,{id:uid(),name,emoji:"✈️",color:"#99ffcc",tasks:[],milestones:[]}]);
+        }}>+ New trip</button>
+      </div>}
 
-  {/* BRAIN DUMP */}
-  {tab==="braindump" && <div style={G}>
-    <div className="card" style={{borderColor:"#c5b3ff18"}}>
-      <div className="slabel">🧠 Brain dump — tag it later or leave it</div>
-      <textarea className="inp" value={bdText} onChange={e=>setBdText(e.target.value)}
-        placeholder="Dump anything here. A thought, worry, task, random memory. No category needed yet." style={{minHeight:90,marginBottom:8,resize:"vertical"}}/>
-      <div style={{display:"flex",gap:8}}>
-        <select className="inp-sm" value={bdTag} onChange={e=>setBdTag(e.target.value)} style={{flex:1}}>
-          <option value="">No tag yet</option>
-          {CATS.map(c=><option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
-        </select>
-        <button className="btn-p" onClick={addBd}>Dump it</button>
-      </div>
-    </div>
-    {brainDump.filter(b=>!b.moved).length>0 && <div className="card">
-      <div className="slabel">Unprocessed ({brainDump.filter(b=>!b.moved).length})</div>
-      {brainDump.filter(b=>!b.moved).map(b=>(
-        <div key={b.id} style={{padding:"12px 0",borderBottom:"1px solid #141422"}}>
-          <div style={{fontSize:13,color:"#ccc",lineHeight:1.6,marginBottom:8}}>{b.text}</div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-            <span style={{fontSize:10,color:"#444",fontFamily:"monospace"}}>{fmtDate(b.date)}</span>
-            {b.tag && <span style={{fontSize:10,color:"#c5b3ff",background:"#c5b3ff12",padding:"2px 6px",borderRadius:20}}>
-              {CATS.find(c=>c.id===b.tag)?.emoji} {CATS.find(c=>c.id===b.tag)?.label}
-            </span>}
-            <div style={{marginLeft:"auto",display:"flex",gap:5}}>
-              <select className="inp-sm" defaultValue="" style={{fontSize:10}} onChange={e=>{if(e.target.value)moveBd(b.id,e.target.value)}}>
-                <option value="">→ Move to…</option>
-                {CATS.map(c=><option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
-              </select>
-              <button className="del" onClick={()=>setBrainDump(brainDump.filter(x=>x.id!==b.id))}>×</button>
+      {/* SOCIAL */}
+      {tab==="social" && <div style={G}>
+        <div className="card">
+          <div className="slabel">Log social event</div>
+          <input className="inp" value={socDesc} onChange={e=>setSocDesc(e.target.value)} placeholder="What happened? Who was there?" style={{marginBottom:8}}/>
+          <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+            <select className="inp-sm" value={socType} onChange={e=>setSocType(e.target.value)}>
+              <option value="attended">Attended event</option>
+              <option value="initiated">I initiated</option>
+              <option value="1on1">1-on-1 hangout</option>
+              <option value="dinner">Dinner / meal</option>
+              <option value="study">Study session</option>
+            </select>
+            <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"#888",cursor:"pointer"}}>
+              <input type="checkbox" checked={socInit} onChange={e=>setSocInit(e.target.checked)}/> I initiated
+            </label>
+          </div>
+          <button className="btn-p" style={{width:"100%"}} onClick={()=>{
+            if(!socDesc.trim())return;
+            setSocialEvents([{id:uid(),date:today,description:socDesc.trim(),type:socType,initiated:socInit},...socialEvents]);
+            setSocDesc(""); setSocInit(false);
+          }}>+ Log</button>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          {[[socialEvents.filter(e=>e.date.startsWith(today.slice(0,7))).length,"#c5b3ff","This month"],
+            [socialEvents.filter(e=>e.initiated&&e.date.startsWith(today.slice(0,7))).length,"#6be5a0","I initiated"],
+            [socialEvents.length,"#8be8ff","All time"]].map(([n,c,l])=>(
+            <div key={l} className="card" style={{flex:1,textAlign:"center",padding:"12px 8px"}}>
+              <div style={{fontSize:22,fontWeight:700,color:c}}>{n}</div>
+              <div style={{fontSize:10,color:"#444",marginTop:2,letterSpacing:1,textTransform:"uppercase"}}>{l}</div>
             </div>
-          </div>
+          ))}
         </div>
-      ))}
-    </div>}
-    {brainDump.filter(b=>b.moved).length>0 && <div className="card" style={{opacity:0.4}}>
-      <div className="slabel">Processed ({brainDump.filter(b=>b.moved).length})</div>
-      {brainDump.filter(b=>b.moved).slice(0,8).map(b=>(
-        <div key={b.id} className="row">
-          <span style={{flex:1,fontSize:12,color:"#333",textDecoration:"line-through"}}>{b.text}</span>
-          <span style={{fontSize:10,color:"#444"}}>→ {CATS.find(c=>c.id===b.movedTo)?.label}</span>
-        </div>
-      ))}
-    </div>}
-  </div>}
-
-  {/* EDIT */}
-  {tab==="edit" && <div style={G}>
-    <div style={{display:"flex",gap:4,background:"#09090f",padding:"4px",borderRadius:10,border:"1px solid #1a1a2a"}}>
-      {[["daily","Daily"],["weekly","Weekly"],["settings","⚙ Settings"]].map(([k,l])=>(
-        <button key={k} className={`tab ${editSec===k?"t-on":"t-off"}`} onClick={()=>setEditSec(k)} style={{flex:1}}>{l}</button>
-      ))}
-    </div>
-
-    {editSec==="daily" && <>
-      <div className="card">
-        <div className="slabel">Rename · adjust minutes · × to delete</div>
-        {dailyHabits.map(h=>(
-          <div key={h.id} className="row">
-            <span style={{fontSize:14,flexShrink:0}}>{h.emoji}</span>
-            <input className="inp-il" value={h.name} onChange={e=>setDailyHabits(dailyHabits.map(d=>d.id===h.id?{...d,name:e.target.value}:d))}/>
-            <input type="number" className="inp-sm" value={h.mins} onChange={e=>setDailyHabits(dailyHabits.map(d=>d.id===h.id?{...d,mins:+e.target.value}:d))} style={{width:55}} title="minutes"/>
-            <button className="del" onClick={()=>setDailyHabits(dailyHabits.filter(d=>d.id!==h.id))}>×</button>
-          </div>
-        ))}
-      </div>
-      <div className="card">
-        <div className="slabel">Add daily habit</div>
-        <div style={{display:"flex",gap:8,marginBottom:8}}>
-          <input className="inp" value={newDEmoji} onChange={e=>setNewDEmoji(e.target.value)} style={{width:48,textAlign:"center",flexShrink:0}}/>
-          <input className="inp" value={newDName} onChange={e=>setNewDName(e.target.value)} placeholder="Habit name"/>
-          <input type="number" className="inp-sm" value={newDMins} onChange={e=>setNewDMins(e.target.value)} style={{width:60}} placeholder="min"/>
-        </div>
-        <button className="btn-p" style={{width:"100%"}} onClick={()=>{
-          if(!newDName.trim())return;
-          setDailyHabits([...dailyHabits,{id:uid(),name:newDName.trim(),emoji:newDEmoji,mins:+newDMins}]);
-          setNewDName(""); setNewDEmoji("⭐"); setNewDMins(30);
-        }}>+ Add</button>
-      </div>
-    </>}
-
-    {editSec==="weekly" && <>
-      <div className="card">
-        <div className="slabel">Tap days to reschedule · edit minutes · × to delete</div>
-        {weeklyHabits.map(h=>(
-          <div key={h.id} style={{paddingBottom:14,marginBottom:14,borderBottom:"1px solid #141422"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-              <span style={{fontSize:14,flexShrink:0}}>{h.emoji}</span>
-              <input className="inp-il" value={h.name} onChange={e=>setWeeklyHabits(weeklyHabits.map(d=>d.id===h.id?{...d,name:e.target.value}:d))}/>
-              <input type="number" className="inp-sm" value={h.mins} onChange={e=>setWeeklyHabits(weeklyHabits.map(d=>d.id===h.id?{...d,mins:+e.target.value}:d))} style={{width:55}}/>
-              <button className="del" onClick={()=>setWeeklyHabits(weeklyHabits.filter(d=>d.id!==h.id))}>×</button>
+        {socialEvents.length>0 && <div className="card">
+          <div className="slabel">Social log</div>
+          {socialEvents.slice(0,20).map(e=>(
+            <div key={e.id} className="row">
+              <span style={{fontSize:11,color:"#555",fontFamily:"monospace",flexShrink:0,width:55}}>{fmtDate(e.date)}</span>
+              <span style={{flex:1,fontSize:13,color:"#ccc"}}>{e.description}</span>
+              {e.initiated && <span style={{fontSize:9,color:"#c5b3ff",background:"#c5b3ff12",padding:"2px 6px",borderRadius:20,flexShrink:0}}>initiated</span>}
             </div>
-            <div style={{display:"flex",gap:4,marginLeft:22,flexWrap:"wrap"}}>
-              {DAYS.map((d,i)=>(
-                <button key={i} className={`dp ${h.days.includes(i)?"dp-on":"dp-off"}`}
-                  onClick={()=>setWeeklyHabits(weeklyHabits.map(x=>x.id===h.id?{...x,days:x.days.includes(i)?x.days.filter(dd=>dd!==i):[...x.days,i].sort()}:x))}>
-                  {d}
-                </button>
-              ))}
+          ))}
+        </div>}
+      </div>}
+
+      {/* THERAPY */}
+      {tab==="therapy" && <div style={G}>
+        <div className="card" style={{borderColor:"#c5b3ff18"}}>
+          <div className="slabel">Daily check-in</div>
+          {[["Energy (1–10)",tcE,setTcE],["Confidence / recall (1–10)",tcC,setTcC],["Preference expressions today",tcP,setTcP]].map(([l,v,s])=>(
+            <div key={l} style={{marginBottom:12}}>
+              <div style={{fontSize:11,color:"#555",marginBottom:6}}>{l}</div>
+              <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                {[1,2,3,4,5,6,7,8,9,10].map(n=><button key={n} className={`score-btn ${v===n?"sel":""}`} onClick={()=>s(n)}>{n}</button>)}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
-      <div className="card">
-        <div className="slabel">Add weekly habit</div>
-        <div style={{display:"flex",gap:8,marginBottom:8}}>
-          <input className="inp" value={newWEmoji} onChange={e=>setNewWEmoji(e.target.value)} style={{width:48,textAlign:"center",flexShrink:0}}/>
-          <input className="inp" value={newWName} onChange={e=>setNewWName(e.target.value)} placeholder="Habit name"/>
-          <input type="number" className="inp-sm" value={newWMins} onChange={e=>setNewWMins(e.target.value)} style={{width:60}} placeholder="min"/>
+          ))}
+          <textarea className="inp" value={tcN} onChange={e=>setTcN(e.target.value)} placeholder="Notes…" style={{marginBottom:10,minHeight:60,resize:"vertical"}}/>
+          <button className="btn-p" style={{width:"100%"}} onClick={()=>{
+            if(!tcE)return;
+            setTherapyLog([{id:uid(),date:today,energy:tcE,confidence:tcC,preference:tcP,notes:tcN},...therapyLog]);
+            setTcE(0);setTcC(0);setTcP(0);setTcN("");
+          }}>Save check-in</button>
         </div>
-        <div style={{marginBottom:10}}>
-          <div style={{fontSize:10,color:"#444",marginBottom:6}}>WHICH DAYS</div>
-          <div style={{display:"flex",gap:4}}>
-            {DAYS.map((d,i)=>(
-              <button key={i} className={`dp ${newWDays.includes(i)?"dp-on":"dp-off"}`}
-                onClick={()=>setNewWDays(newWDays.includes(i)?newWDays.filter(x=>x!==i):[...newWDays,i].sort())}>
-                {d}
-              </button>
+        {therapyLog.length>0 && <div className="card">
+          <div className="slabel">History</div>
+          {therapyLog.slice(0,14).map(e=>(
+            <div key={e.id} className="row">
+              <span style={{fontSize:11,color:"#555",fontFamily:"monospace",width:55,flexShrink:0}}>{fmtDate(e.date)}</span>
+              <div style={{flex:1,display:"flex",gap:10}}>
+                <span style={{fontSize:12,color:"#c5b3ff"}}>⚡{e.energy}</span>
+                <span style={{fontSize:12,color:"#8be8ff"}}>🧠{e.confidence}</span>
+                <span style={{fontSize:12,color:"#ffd93d"}}>💬{e.preference}</span>
+              </div>
+              {e.notes && <span style={{fontSize:11,color:"#444",maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.notes}</span>}
+            </div>
+          ))}
+        </div>}
+        <div className="card">
+          <div className="slabel">Theatre prompts — perform until feelings come naturally</div>
+          <p style={{fontSize:12,color:"#555",lineHeight:1.7,marginBottom:12}}>One per day. The fakeness is the point — do it anyway.</p>
+          {theatrePrompts.map(p=>(
+            <div key={p.id} className="row">
+              <button className={`chk ${p.done?"chk-on":""}`} onClick={()=>setTheatrePrompts(theatrePrompts.map(x=>x.id===p.id?{...x,done:!x.done}:x))}>{p.done?"✓":""}</button>
+              <span style={{flex:1,fontSize:13,color:p.done?"#333":"#ccc",textDecoration:p.done?"line-through":"none"}}>{p.prompt}</span>
+            </div>
+          ))}
+          <input className="inp" style={{marginTop:10}} placeholder="Add new prompt…" onKeyDown={e=>{
+            if(e.key==="Enter"&&e.target.value.trim()){
+              setTheatrePrompts([...theatrePrompts,{id:uid(),prompt:e.target.value.trim(),done:false}]);
+              e.target.value="";
+            }
+          }}/>
+        </div>
+      </div>}
+
+      {/* SIDE QUESTS */}
+      {tab==="sidequests" && <div style={G}>
+        <p style={{fontSize:12,color:"#555",padding:"0 2px"}}>Reach goals — aim for at least once a month.</p>
+        {sideQuests.map(sq=>{
+          const last=sq.log.length>0?sq.log[sq.log.length-1].date:null;
+          const dAgo=last?Math.floor((new Date()-new Date(last))/86400000):999;
+          return (
+            <div key={sq.id} className="card" style={{borderColor:dAgo<=31?"#6be5a018":"#1a1a2a"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <span style={{fontSize:22}}>{sq.emoji}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14,fontWeight:500}}>{sq.name}</div>
+                  <div style={{fontSize:11,color:dAgo<=31?"#6be5a0":"#555",marginTop:2}}>
+                    {last?`Last: ${fmtDate(last)} (${dAgo}d ago)`:"Not done yet"}
+                  </div>
+                </div>
+                <div style={{fontSize:10,color:"#444"}}>×{sq.log.length}</div>
+                <button className="btn-sm" onClick={()=>setSideQuests(sideQuests.map(x=>x.id===sq.id?{...x,log:[...x.log,{id:uid(),date:today}]}:x))}>✓ Did it</button>
+              </div>
+            </div>
+          );
+        })}
+        <button className="btn-ghost" style={{width:"100%"}} onClick={()=>{
+          const name=prompt("Side quest name?"); if(!name)return;
+          const emoji=prompt("Emoji?")||"⭐";
+          setSideQuests([...sideQuests,{id:uid(),name,emoji,log:[]}]);
+        }}>+ Add side quest</button>
+      </div>}
+
+      {/* WEIGHT LOSS */}
+      {tab==="weightloss" && <div style={G}>
+        <div className="card" style={{borderColor:"#ff8c4218"}}>
+          <div className="slabel">Goal: –15kg by June 15, 2026</div>
+          <div style={{display:"flex",gap:12,marginBottom:10,flexWrap:"wrap"}}>
+            <span style={{fontSize:11,color:"#555"}}>Days left: <strong style={{color:"#c5b3ff"}}>{daysUntil("2026-06-15")}</strong></span>
+            {weightLog.length>0 && <span style={{fontSize:11,color:"#555"}}>Latest: <strong style={{color:"#c5b3ff"}}>{weightLog[weightLog.length-1].weight}kg</strong></span>}
+          </div>
+          <div style={{display:"flex",gap:8,marginBottom:8}}>
+            <input className="inp" type="number" value={wInput} onChange={e=>setWInput(e.target.value)} placeholder="Weight (kg)" style={{flex:1}}/>
+            <input className="inp" value={wNotes} onChange={e=>setWNotes(e.target.value)} placeholder="Notes" style={{flex:2}}/>
+          </div>
+          <button className="btn-p" style={{width:"100%"}} onClick={()=>{
+            if(!wInput)return;
+            setWeightLog([...weightLog,{id:uid(),date:today,weight:+wInput,notes:wNotes}]);
+            setWInput(""); setWNotes("");
+          }}>Log weight</button>
+        </div>
+        {weightLog.length>1 && <div className="card">
+          <div className="slabel">Log</div>
+          {[...weightLog].reverse().slice(0,20).map(e=>(
+            <div key={e.id} className="row">
+              <span style={{fontSize:11,color:"#555",fontFamily:"monospace",flexShrink:0,width:55}}>{fmtDate(e.date)}</span>
+              <span style={{flex:1,fontSize:14,fontWeight:600,color:"#c5b3ff"}}>{e.weight}kg</span>
+              {e.notes && <span style={{fontSize:11,color:"#444"}}>{e.notes}</span>}
+            </div>
+          ))}
+        </div>}
+      </div>}
+
+      {/* LIFE ADMIN */}
+      {tab==="lifeadmin" && <div style={G}>
+        <div className="card">
+          <div className="slabel">Life admin tasks</div>
+          {catTasks("lifeadmin").map(t=><TaskRow key={t.id} task={t} onToggle={toggleTask} onDelete={deleteTask} onUpdate={updateTask}/>)}
+          <AddTask onAdd={t=>setTasks([...tasks,t])} defaultCat="lifeadmin"/>
+        </div>
+      </div>}
+
+      {/* BRAIN DUMP */}
+      {tab==="braindump" && <div style={G}>
+        <div className="card" style={{borderColor:"#c5b3ff18"}}>
+          <div className="slabel">🧠 Brain dump — tag it later or leave it</div>
+          <textarea className="inp" value={bdText} onChange={e=>setBdText(e.target.value)}
+            placeholder="Dump anything here. A thought, worry, task, random memory. No category needed yet." style={{minHeight:90,marginBottom:8,resize:"vertical"}}/>
+          <div style={{display:"flex",gap:8}}>
+            <select className="inp-sm" value={bdTag} onChange={e=>setBdTag(e.target.value)} style={{flex:1}}>
+              <option value="">No tag yet</option>
+              {CATS.map(c=><option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
+            </select>
+            <button className="btn-p" onClick={addBd}>Dump it</button>
+          </div>
+        </div>
+        {brainDump.filter(b=>!b.moved).length>0 && <div className="card">
+          <div className="slabel">Unprocessed ({brainDump.filter(b=>!b.moved).length})</div>
+          {brainDump.filter(b=>!b.moved).map(b=>(
+            <div key={b.id} style={{padding:"12px 0",borderBottom:"1px solid #141422"}}>
+              <div style={{fontSize:13,color:"#ccc",lineHeight:1.6,marginBottom:8}}>{b.text}</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                <span style={{fontSize:10,color:"#444",fontFamily:"monospace"}}>{fmtDate(b.date)}</span>
+                {b.tag && <span style={{fontSize:10,color:"#c5b3ff",background:"#c5b3ff12",padding:"2px 6px",borderRadius:20}}>
+                  {CATS.find(c=>c.id===b.tag)?.emoji} {CATS.find(c=>c.id===b.tag)?.label}
+                </span>}
+                <div style={{marginLeft:"auto",display:"flex",gap:5}}>
+                  <select className="inp-sm" defaultValue="" style={{fontSize:10}} onChange={e=>{if(e.target.value)moveBd(b.id,e.target.value)}}>
+                    <option value="">→ Move to…</option>
+                    {CATS.map(c=><option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
+                  </select>
+                  <button className="del" onClick={()=>setBrainDump(brainDump.filter(x=>x.id!==b.id))}>×</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>}
+        {brainDump.filter(b=>b.moved).length>0 && <div className="card" style={{opacity:0.4}}>
+          <div className="slabel">Processed ({brainDump.filter(b=>b.moved).length})</div>
+          {brainDump.filter(b=>b.moved).slice(0,8).map(b=>(
+            <div key={b.id} className="row">
+              <span style={{flex:1,fontSize:12,color:"#333",textDecoration:"line-through"}}>{b.text}</span>
+              <span style={{fontSize:10,color:"#444"}}>→ {CATS.find(c=>c.id===b.movedTo)?.label}</span>
+            </div>
+          ))}
+        </div>}
+      </div>}
+
+      {/* EDIT */}
+      {tab==="edit" && <div style={G}>
+        <div style={{display:"flex",gap:4,background:"#09090f",padding:"4px",borderRadius:10,border:"1px solid #1a1a2a"}}>
+          {[["daily","Daily"],["weekly","Weekly"],["settings","⚙ Settings"]].map(([k,l])=>(
+            <button key={k} className={`tab ${editSec===k?"t-on":"t-off"}`} onClick={()=>setEditSec(k)} style={{flex:1}}>{l}</button>
+          ))}
+        </div>
+
+        {editSec==="daily" && <>
+          <div className="card">
+            <div className="slabel">Rename · adjust minutes · × to delete</div>
+            {dailyHabits.map(h=>(
+              <div key={h.id} className="row">
+                <span style={{fontSize:14,flexShrink:0}}>{h.emoji}</span>
+                <input className="inp-il" value={h.name} onChange={e=>setDailyHabits(dailyHabits.map(d=>d.id===h.id?{...d,name:e.target.value}:d))}/>
+                <input type="number" className="inp-sm" value={h.mins} onChange={e=>setDailyHabits(dailyHabits.map(d=>d.id===h.id?{...d,mins:+e.target.value}:d))} style={{width:55}} title="minutes"/>
+                <button className="del" onClick={()=>setDailyHabits(dailyHabits.filter(d=>d.id!==h.id))}>×</button>
+              </div>
             ))}
           </div>
-        </div>
-        <button className="btn-p" style={{width:"100%"}} onClick={()=>{
-          if(!newWName.trim()||!newWDays.length)return;
-          setWeeklyHabits([...weeklyHabits,{id:uid(),name:newWName.trim(),emoji:newWEmoji,days:[...newWDays],mins:+newWMins}]);
-          setNewWName(""); setNewWEmoji("⭐"); setNewWDays([]); setNewWMins(30);
-        }}>+ Add</button>
-      </div>
-    </>}
+          <div className="card">
+            <div className="slabel">Add daily habit</div>
+            <div style={{display:"flex",gap:8,marginBottom:8}}>
+              <input className="inp" value={newDEmoji} onChange={e=>setNewDEmoji(e.target.value)} style={{width:48,textAlign:"center",flexShrink:0}}/>
+              <input className="inp" value={newDName} onChange={e=>setNewDName(e.target.value)} placeholder="Habit name"/>
+              <input type="number" className="inp-sm" value={newDMins} onChange={e=>setNewDMins(e.target.value)} style={{width:60}} placeholder="min"/>
+            </div>
+            <button className="btn-p" style={{width:"100%"}} onClick={()=>{
+              if(!newDName.trim())return;
+              setDailyHabits([...dailyHabits,{id:uid(),name:newDName.trim(),emoji:newDEmoji,mins:+newDMins}]);
+              setNewDName(""); setNewDEmoji("⭐"); setNewDMins(30);
+            }}>+ Add</button>
+          </div>
+        </>}
 
-    {editSec==="settings" && <div className="card">
-      <div className="slabel">Google Calendar sync URL</div>
-      <p style={{fontSize:12,color:"#555",lineHeight:1.8,marginBottom:12}}>
-        Paste your Apps Script URL here. The dashboard auto-syncs 3 seconds after any change, and the script rebuilds your calendar every morning at 6am.
-      </p>
-      <input className="inp" value={scriptUrl} onChange={e=>setScriptUrl(e.target.value)}
-        placeholder="https://script.google.com/macros/s/…/exec" style={{marginBottom:10}}/>
-      <button className="btn-p" style={{width:"100%"}} onClick={doSync}>Save & Sync now</button>
-      <div style={{marginTop:14,fontSize:12,color:"#444",lineHeight:1.8}}>
-        <strong style={{color:"#c5b3ff"}}>Setup:</strong> script.google.com → paste .gs file → Deploy → Web app → Execute as Me → Anyone → copy URL above
-      </div>
-    </div>}
-  </div>}
+        {editSec==="weekly" && <>
+          <div className="card">
+            <div className="slabel">Tap days to reschedule · edit minutes · × to delete</div>
+            {weeklyHabits.map(h=>(
+              <div key={h.id} style={{paddingBottom:14,marginBottom:14,borderBottom:"1px solid #141422"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                  <span style={{fontSize:14,flexShrink:0}}>{h.emoji}</span>
+                  <input className="inp-il" value={h.name} onChange={e=>setWeeklyHabits(weeklyHabits.map(d=>d.id===h.id?{...d,name:e.target.value}:d))}/>
+                  <input type="number" className="inp-sm" value={h.mins} onChange={e=>setWeeklyHabits(weeklyHabits.map(d=>d.id===h.id?{...d,mins:+e.target.value}:d))} style={{width:55}}/>
+                  <button className="del" onClick={()=>setWeeklyHabits(weeklyHabits.filter(d=>d.id!==h.id))}>×</button>
+                </div>
+                <div style={{display:"flex",gap:4,marginLeft:22,flexWrap:"wrap"}}>
+                  {DAYS.map((d,i)=>(
+                    <button key={i} className={`dp ${h.days.includes(i)?"dp-on":"dp-off"}`}
+                      onClick={()=>setWeeklyHabits(weeklyHabits.map(x=>x.id===h.id?{...x,days:x.days.includes(i)?x.days.filter(dd=>dd!==i):[...x.days,i].sort()}:x))}>
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="card">
+            <div className="slabel">Add weekly habit</div>
+            <div style={{display:"flex",gap:8,marginBottom:8}}>
+              <input className="inp" value={newWEmoji} onChange={e=>setNewWEmoji(e.target.value)} style={{width:48,textAlign:"center",flexShrink:0}}/>
+              <input className="inp" value={newWName} onChange={e=>setNewWName(e.target.value)} placeholder="Habit name"/>
+              <input type="number" className="inp-sm" value={newWMins} onChange={e=>setNewWMins(e.target.value)} style={{width:60}} placeholder="min"/>
+            </div>
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:10,color:"#444",marginBottom:6}}>WHICH DAYS</div>
+              <div style={{display:"flex",gap:4}}>
+                {DAYS.map((d,i)=>(
+                  <button key={i} className={`dp ${newWDays.includes(i)?"dp-on":"dp-off"}`}
+                    onClick={()=>setNewWDays(newWDays.includes(i)?newWDays.filter(x=>x!==i):[...newWDays,i].sort())}>
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button className="btn-p" style={{width:"100%"}} onClick={()=>{
+              if(!newWName.trim()||!newWDays.length)return;
+              setWeeklyHabits([...weeklyHabits,{id:uid(),name:newWName.trim(),emoji:newWEmoji,days:[...newWDays],mins:+newWMins}]);
+              setNewWName(""); setNewWEmoji("⭐"); setNewWDays([]); setNewWMins(30);
+            }}>+ Add</button>
+          </div>
+        </>}
 
-  <div style={{textAlign:"center",marginTop:30,fontSize:10,color:"#1a1a2a",letterSpacing:"2px",fontFamily:"monospace"}}>JUNE 15 · GRAD DAY ✦</div>
-</div>
-```
+        {editSec==="settings" && <div className="card">
+          <div className="slabel">Google Calendar sync URL</div>
+          <p style={{fontSize:12,color:"#555",lineHeight:1.8,marginBottom:12}}>
+            Paste your Apps Script URL here. The dashboard auto-syncs 3 seconds after any change, and the script rebuilds your calendar every morning at 6am.
+          </p>
+          <input className="inp" value={scriptUrl} onChange={e=>setScriptUrl(e.target.value)}
+            placeholder="https://script.google.com/macros/s/…/exec" style={{marginBottom:10}}/>
+          <button className="btn-p" style={{width:"100%"}} onClick={doSync}>Save & Sync now</button>
+          <div style={{marginTop:14,fontSize:12,color:"#444",lineHeight:1.8}}>
+            <strong style={{color:"#c5b3ff"}}>Setup:</strong> script.google.com → paste .gs file → Deploy → Web app → Execute as Me → Anyone → copy URL above
+          </div>
+        </div>}
+      </div>}
 
-);
+      <div style={{textAlign:"center",marginTop:30,fontSize:10,color:"#1a1a2a",letterSpacing:"2px",fontFamily:"monospace"}}>JUNE 15 · GRAD DAY ✦</div>
+    </div>
+  );
 }
 
-const root = ReactDOM.createRoot(document.getElementById(“root”));
+const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<App/>);
 </script>
-
 </body>
 </html>
